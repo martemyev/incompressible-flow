@@ -4,6 +4,14 @@
 using namespace std;
 using namespace mfem;
 
+double q_func(Vector& x)
+{
+  const double rad = 0.02;
+  if (x(0) < rad && x(1) < rad) return 1.0; // injection
+  if (x(0) > (1.-rad) && x(1) > (1.-rad)) return -1.0; // production
+  return 0.0;
+}
+
 void PressureSolver(const Array<int> &block_offsets,
                     const Mesh& mesh,
                     const Grid &grid,
@@ -13,8 +21,9 @@ void PressureSolver(const Array<int> &block_offsets,
                     BlockVector &x)
 {
   const bool own_array = false;
-  CWCoefficient K(saturation, MU_W, MU_O, grid.K_array, own_array);
-  CWConstCoefficient Q(grid.Q_array, own_array);
+//  CWCoefficient K(saturation, MU_W, MU_O, grid.K_array, grid.n_cells, own_array);
+//  CWConstCoefficient Q(grid.Q_array, grid.n_cells, own_array);
+  FunctionCoefficient Q(q_func);
 
   BlockVector rhs(block_offsets);
 
@@ -26,17 +35,16 @@ void PressureSolver(const Array<int> &block_offsets,
   gform.Update(&P_space, rhs.GetBlock(1), 0);
   gform.AddDomainIntegrator(new DomainLFIntegrator(Q));
   gform.Assemble();
+  gform *= -1.0;
 
   BilinearForm mVarf(&V_space);
   MixedBilinearForm bVarf(&V_space, &P_space);
 
   mVarf.AddDomainIntegrator(new VectorFEMassIntegrator); // (K));
   mVarf.Assemble();
-  mVarf.Finalize();
 
-  bVarf.AddDomainIntegrator(new VectorFEDivergenceIntegrator(K));
+  bVarf.AddDomainIntegrator(new VectorFEDivergenceIntegrator()); //(K));
   bVarf.Assemble();
-  bVarf.Finalize();
 
   Array<int> bdr_attr_is_ess(mesh.bdr_attributes.Max());
   bdr_attr_is_ess = 1;
@@ -44,6 +52,9 @@ void PressureSolver(const Array<int> &block_offsets,
   V_space.GetEssentialVDofs(bdr_attr_is_ess, ess_dofs);
   mVarf.EliminateEssentialBCFromDofs(ess_dofs, x.GetBlock(0), rhs.GetBlock(0));
   bVarf.EliminateEssentialBCFromTrialDofs(ess_dofs, x.GetBlock(0), rhs.GetBlock(0));
+
+  mVarf.Finalize();
+  bVarf.Finalize();
 
   SparseMatrix& M = mVarf.SpMat();
   SparseMatrix& B = bVarf.SpMat();

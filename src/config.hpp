@@ -4,7 +4,7 @@
 #include <string>
 
 // MFEM config file
-#include "/u/artemyev/projects/mfem/serial/config.hpp"
+#include "/u/artemyev/projects/mfem/serialdebug/config.hpp"
 
 #ifndef nullptr
   #define nullptr NULL

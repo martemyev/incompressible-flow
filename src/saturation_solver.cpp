@@ -5,80 +5,87 @@
 using namespace std;
 using namespace mfem;
 
-void FS(const Vector& S, double mu_w, double mu_o, Vector& fs)
+void FS(const GridFunction& S, Vector& fs)
 {
+  MFEM_VERIFY(S.Size() == fs.Size(), "Sizes mismatch");
   for (int i = 0; i < S.Size(); ++i)
   {
     double s = S(i);
-    double mw = CWCoefficient::Krw(s) / mu_w;
-    double mo = CWCoefficient::Kro(s) / mu_o;
+    double mw = Krw(s) / MU_W;
+    double mo = Kro(s) / MU_O;
     fs(i) = mw / (mw+mo);
   }
 }
+
+
 
 void SaturationSolver(const Grid &grid, GridFunction &S,
                       VectorCoefficient &velocity, double global_dt)
 {
   FiniteElementSpace &S_space = *S.FESpace();
-  const int N = S.Size();
-//  Vector S_nodal;
 
   BilinearForm m(&S_space);
   m.AddDomainIntegrator(new MassIntegrator);
-  m.Assemble();
-  m.Finalize();
-  const SparseMatrix& M = m.SpMat();
-  DSmoother M_prec(M);
-
   BilinearForm k(&S_space);
-  k.AddDomainIntegrator(new ConvectionIntegrator(velocity, -1.0));
+//  k.AddDomainIntegrator(new ConvectionIntegrator(velocity, -1.0));
   k.AddInteriorFaceIntegrator(
-        new TransposeIntegrator(new DGTraceIntegrator(velocity, 1.0, -0.5)));
-  k.AddBdrFaceIntegrator(
-        new TransposeIntegrator(new DGTraceIntegrator(velocity, 1.0, -0.5)));
-  const int skip_zeros = 0;
-  k.Assemble(skip_zeros);
-  k.Finalize(skip_zeros);
-  SparseMatrix& K = k.SpMat();
-//  K *= -1.;
+     new TransposeIntegrator(new DGTraceIntegrator(velocity, 1.0, -0.5)));
+//  k.AddBdrFaceIntegrator(
+//     new TransposeIntegrator(new DGTraceIntegrator(velocity, 1.0, -0.5)));
 
   const bool own_array = false;
-  CWConstCoefficient r_coef(grid.r_array, own_array);
-
+  CWConstCoefficient r_coef(grid.r_array, grid.n_cells, own_array);
   LinearForm b(&S_space);
   b.AddDomainIntegrator(new DomainLFIntegrator(r_coef));
+
+  m.Assemble();
+  m.Finalize();
+  int skip_zeros = 0;
+  k.Assemble(skip_zeros);
+  k.Finalize(skip_zeros);
   b.Assemble();
 
-  const int nt = 350;
-  double dt = global_dt/nt;
-  for (int t = 0; t < nt; ++t)
+  SparseMatrix& K = k.SpMat();  K *= -1.0;
+  SparseMatrix *Kt = Transpose(K);
+  const SparseMatrix& M = m.SpMat();
+  const int N = S.Size();
+
+  DSmoother M_prec;
+  CGSolver M_solver;
+  M_solver.SetPreconditioner(M_prec);
+  M_solver.SetOperator(M);
+  M_solver.iterative_mode = false;
+  M_solver.SetRelTol(1e-9);
+  M_solver.SetAbsTol(0.0);
+  M_solver.SetMaxIter(100);
+  M_solver.SetPrintLevel(0);
+
+  Vector y(N), z(N), fs(N);
+
+  double t_final = 100.;
+  double dt = 1e-2; //global_dt/nt;
+  const int nt = t_final/dt;
+  double t = 0.0;
+  for (int ti = 0; ti < nt; ++ti, t += dt)
   {
-    cout << "time step " << t+1 << " / " << nt << endl;
+     // y = M^{-1} (K x + b)
+//     FS(S, fs);
+//     K.Mult(fs, z);
+     (*Kt).Mult(S, z); // S = S + dt M^-1( K S + b)
+     z += b;
+     M_solver.Mult(z, y);
+     y *= dt;
+     S += y;
 
-     Vector fs(N);
-     FS(S, MU_W, MU_O, fs);
-
-     Vector y(N);
-     K.MultTranspose(fs, y); // y = K S_n
-
-     Vector F = b;
-     F -= y; // F = r_n - K S_n
-
-     // z = M^-1 F
-     Vector z(N);
-     PCG(M, M_prec, F, z, 0, 100, 1e-9, 0.0);
-
-     z *= dt;
-     S += z; // u_n+1 = u_n + dt M^-1 (r_n - K S_n)
-
-//     if (t % 200 == 0)
-//     {
-//       const string tstr = d2s(t, 0, 0, 0, 6);
-//       string fname = "local_saturation_" + tstr + ".vts";
-//       S.GetNodalValues(S_nodal);
-//       write_vts_scalar(fname, "saturation", grid.sx, grid.sy, grid.nx, grid.ny,
-//                        S_nodal);
-//     }
+     if (ti % 200 == 0)
+     {
+        cout << "time step " << ti << " / " << nt << ", time: " << t << endl;
+        Vector S_nodal;
+        S.GetNodalValues(S_nodal);
+        string fname = "saturation_" + d2s(ti, 0, 0, 0, 6) + ".vts";
+        write_vts_scalar(fname, "saturation", grid.sx, grid.sy, grid.nx,
+                         grid.ny, S_nodal);
+     }
   }
 }
 

@@ -22,9 +22,9 @@ int main(int argc, char **argv)
             grid.sx, grid.sy);
   const int dim = mesh.Dimension();
 
-//  const int order = 1;
-  FiniteElementCollection *hdiv_coll = new RT_FECollection(0, dim); // for velocity
-  FiniteElementCollection *l2_coll   = new L2_FECollection(0, dim); // for pressure
+  const int order = 0;
+  FiniteElementCollection *hdiv_coll = new RT_FECollection(order, dim); // for velocity
+  FiniteElementCollection *l2_coll   = new L2_FECollection(order, dim); // for pressure
   DG_FECollection         *dg_coll   = new DG_FECollection(0, dim); // for saturation
 
   FiniteElementSpace V_space(&mesh, hdiv_coll);
@@ -51,11 +51,11 @@ int main(int argc, char **argv)
 
   GridFunction V, P;
 
-  BlockVector x(block_offsets);
+  BlockVector x(block_offsets); // solution of the mixed problem
   V.Update(&V_space, x.GetBlock(0), 0);
   P.Update(&P_space, x.GetBlock(1), 0);
 
-  GridFunction S(&S_space);
+  GridFunction S(&S_space); // solution of the saturation problem
   S = 0.0;
   GridFunctionCoefficient saturation(&S);
   VectorGridFunctionCoefficient velocity(&V);
@@ -63,24 +63,28 @@ int main(int argc, char **argv)
   Vector P_nodal, S_nodal, Vx_nodal, Vy_nodal;
 
   string fname;
-  for (int t = 0; t < nt; ++t)
+//  for (int t = 0; t < nt; ++t)
   {
-    PressureSolver(block_offsets, mesh, grid, V_space, P_space, saturation, x);
-    SaturationSolver(grid, S, velocity, dt);
+    const string tstr = "0"; //d2s(t, 0, 0, 0, 6);
 
-    const string tstr = d2s(t, 0, 0, 0, 6);
+    PressureSolver(block_offsets, mesh, grid, V_space, P_space, saturation, x);
+
     fname = "pressure_" + tstr + ".vts";
     P.GetNodalValues(P_nodal);
     write_vts_scalar(fname, "pressure", grid.sx, grid.sy, grid.nx, grid.ny, P_nodal);
+
     fname = "velocity_" + tstr + ".vts";
     V.GetNodalValues(Vx_nodal, 1);
     V.GetNodalValues(Vy_nodal, 2);
     write_vts_vector(fname, "velocity", grid.sx, grid.sy, grid.nx, grid.ny, Vx_nodal, Vy_nodal);
-    fname = "saturation_" + tstr + ".vts";
-    S.GetNodalValues(S_nodal);
-    write_vts_scalar(fname, "saturation", grid.sx, grid.sy, grid.nx, grid.ny, S_nodal);
 
-    cout << "time step " << t+1 << " is done" << endl;
+    SaturationSolver(grid, S, velocity, dt);
+
+//    fname = "saturation_" + tstr + ".vts";
+//    S.GetNodalValues(S_nodal);
+//    write_vts_scalar(fname, "saturation", grid.sx, grid.sy, grid.nx, grid.ny, S_nodal);
+
+//    cout << "time step " << t+1 << " is done" << endl;
   }
 
   return 0;

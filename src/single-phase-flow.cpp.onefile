@@ -1,0 +1,237 @@
+#include "mfem.hpp"
+
+using namespace std;
+using namespace mfem;
+
+const double RAD  = 0.05; // radius of a well
+const double SIZE = 1.0;  // size of a domain
+const int NCELLS  = 100;  // number of cell in one dimension
+
+double g_func(Vector& x);
+double r_func(Vector& x);
+
+class FE_Evolution : public TimeDependentOperator
+{
+private:
+   SparseMatrix &M, &K;
+   const Vector &b;
+   DSmoother M_prec;
+   CGSolver M_solver;
+
+   mutable Vector z;
+
+public:
+   FE_Evolution(SparseMatrix &_M, SparseMatrix &_K, const Vector &_b);
+
+   virtual void Mult(const Vector &x, Vector &y) const;
+
+   virtual ~FE_Evolution() { }
+};
+
+int main()
+{
+  // Cartesian grid on a square domain
+  Mesh mesh(NCELLS, NCELLS, Element::QUADRILATERAL, 1, SIZE, SIZE);
+  const int dim = mesh.Dimension();
+
+  FiniteElementCollection *hdiv_coll = new RT_FECollection(1, dim); // for velocity
+  FiniteElementCollection *l2_coll   = new L2_FECollection(1, dim); // for pressure
+
+  FiniteElementSpace V_space(&mesh, hdiv_coll); // velocity space
+  FiniteElementSpace P_space(&mesh, l2_coll);   // pressure space
+
+  Array<int> block_offsets(3);
+  block_offsets[0] = 0;
+  block_offsets[1] = V_space.GetVSize();
+  block_offsets[2] = P_space.GetVSize();
+  block_offsets.PartialSum();
+
+  BlockVector x(block_offsets);   // solution of the mixed problem
+  BlockVector rhs(block_offsets); // RHS of the mixed problem
+
+  rhs = 0.0;
+
+  // LinearForm corresponding to the rhs.GetBlock(0) is zero, because
+  // -grad p = v
+
+  LinearForm gform;
+  gform.Update(&P_space, rhs.GetBlock(1), 0);
+  FunctionCoefficient G(g_func); // source
+  gform.AddDomainIntegrator(new DomainLFIntegrator(G));
+  gform.Assemble();
+  gform *= -1.0; // div v = g, therefore -div v = -g
+
+  BilinearForm mVarf(&V_space);
+  MixedBilinearForm bVarf(&V_space, &P_space);
+
+  mVarf.AddDomainIntegrator(new VectorFEMassIntegrator);
+  mVarf.Assemble();
+
+  bVarf.AddDomainIntegrator(new VectorFEDivergenceIntegrator());
+  bVarf.Assemble();
+
+  // v \cdot n = 0
+  Array<int> bdr_attr_is_ess(mesh.bdr_attributes.Max());
+  bdr_attr_is_ess = 1;
+  Array<int> ess_dofs;
+  V_space.GetEssentialVDofs(bdr_attr_is_ess, ess_dofs);
+  mVarf.EliminateEssentialBCFromDofs(ess_dofs, x.GetBlock(0), rhs.GetBlock(0));
+  bVarf.EliminateEssentialBCFromTrialDofs(ess_dofs, x.GetBlock(0), rhs.GetBlock(0));
+
+  mVarf.Finalize();
+  bVarf.Finalize();
+
+  SparseMatrix& M = mVarf.SpMat();
+  SparseMatrix& B = bVarf.SpMat();
+  B *= -1.0;
+  SparseMatrix *BT = Transpose(B);
+
+  BlockMatrix darcyMatrix(block_offsets);
+  darcyMatrix.SetBlock(0, 0, &M);
+  darcyMatrix.SetBlock(0, 1, BT);
+  darcyMatrix.SetBlock(1, 0, &B);
+
+  SparseMatrix *MinvBt = Transpose(B);
+  Vector Md(M.Height());
+  M.GetDiag(Md);
+  for (int i = 0; i < Md.Size(); ++i)
+    MinvBt->ScaleRow(i, 1.0/Md(i));
+  SparseMatrix *Smat = Mult(B, *MinvBt);
+
+  Solver *invM = new DSmoother(M);
+  Solver *invS = new GSSmoother(*Smat);
+
+  invM->iterative_mode = false;
+  invS->iterative_mode = false;
+
+  BlockDiagonalPreconditioner darcyPrec(block_offsets);
+  darcyPrec.SetDiagonalBlock(0, invM);
+  darcyPrec.SetDiagonalBlock(1, invS);
+
+  const int maxiter = 1000;
+  const double rtol = 1e-6;
+  const double atol = 1e-10;
+
+  MINRESSolver solver;
+  solver.SetMaxIter(maxiter);
+  solver.SetRelTol(rtol);
+  solver.SetAbsTol(atol);
+  solver.SetOperator(darcyMatrix);
+  solver.SetPreconditioner(darcyPrec);
+  solver.SetPrintLevel(0);
+
+  x = 0.0;
+  solver.Mult(rhs, x);
+
+  delete Smat;
+  delete invS;
+  delete invM;
+  delete MinvBt;
+  delete BT;
+
+  GridFunction V, P; // velocty and pressure dofs
+  V.Update(&V_space, x.GetBlock(0), 0);
+  P.Update(&P_space, x.GetBlock(1), 0);
+
+  char vishost[] = "localhost";
+  int  visport   = 19916;
+  socketstream sout(vishost, visport);
+  MFEM_VERIFY(sout, "Unable to connect to GLVis server");
+  sout.precision(8);
+//  sout << "solution\n" << mesh << P << "pause\n" << flush;
+//  sout << "solution\n" << mesh << V << "pause\n" << flush;
+
+  VectorGridFunctionCoefficient velocity(&V); // velocity as a coefficient
+
+  DG_FECollection *dg_coll = new DG_FECollection(0, dim); // for saturation
+  FiniteElementSpace S_space(&mesh, dg_coll);
+  GridFunction S(&S_space); // solution of the saturation problem
+
+  BilinearForm m(&S_space);
+  m.AddDomainIntegrator(new MassIntegrator);
+  BilinearForm k(&S_space);
+  k.AddDomainIntegrator(new ConvectionIntegrator(velocity, -1.0));
+  k.AddInteriorFaceIntegrator(
+     new TransposeIntegrator(new DGTraceIntegrator(velocity, 1.0, 0.5)));
+  k.AddBdrFaceIntegrator(
+     new TransposeIntegrator(new DGTraceIntegrator(velocity, 1.0, -0.5)));
+
+  FunctionCoefficient R(r_func);
+  LinearForm b(&S_space);
+  b.AddDomainIntegrator(new DomainLFIntegrator(R));
+
+  m.Assemble();
+  m.Finalize();
+  int skip_zeros = 0;
+  k.Assemble(skip_zeros);
+  k.Finalize(skip_zeros);
+  b.Assemble();
+
+  SparseMatrix& K = k.SpMat();
+  SparseMatrix *Kt = Transpose(K); (*Kt) *= -1.0;
+
+  FE_Evolution saturation(m.SpMat(), *Kt, b);
+  ForwardEulerSolver ode_solver;
+  ode_solver.Init(saturation);
+
+  double t_final = 10.0;
+  double dt      = 1e-2;
+  double t = 0.0;
+
+  S = 0.0;
+  for (int ti = 0; true; )
+  {
+     if (t >= t_final - dt/2)
+        break;
+
+     ode_solver.Step(S, t, dt);
+     ti++;
+
+     if (ti % 100 == 0)
+     {
+        cout << "time step: " << ti << ", time: " << t << endl;
+        sout << "solution\n" << mesh << S << flush;
+     }
+  }
+
+  delete Kt;
+  delete hdiv_coll;
+  delete l2_coll;
+  delete dg_coll;
+}
+
+
+FE_Evolution::FE_Evolution(SparseMatrix &_M, SparseMatrix &_K, const Vector &_b)
+   : TimeDependentOperator(_M.Size()), M(_M), K(_K), b(_b), z(_M.Size())
+{
+   M_solver.SetPreconditioner(M_prec);
+   M_solver.SetOperator(M);
+
+   M_solver.iterative_mode = false;
+   M_solver.SetRelTol(1e-9);
+   M_solver.SetAbsTol(0.0);
+   M_solver.SetMaxIter(100);
+   M_solver.SetPrintLevel(0);
+}
+
+void FE_Evolution::Mult(const Vector &x, Vector &y) const
+{
+   // y = M^{-1} (K x + b)
+   K.Mult(x, z);
+   z += b;
+   M_solver.Mult(z, y);
+}
+
+double g_func(Vector& x)
+{
+  if (x(0) < RAD && x(1) < RAD) return 1.0; // injection well
+  if (x(0) > (SIZE-RAD) && x(1) > (SIZE-RAD)) return -1.0; // production well
+  return 0.0;
+}
+
+double r_func(Vector& x)
+{
+  if (x(0) < RAD && x(1) < RAD) return 1.0; // source of saturation well
+  return 0.0;
+}
+
