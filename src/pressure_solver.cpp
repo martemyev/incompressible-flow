@@ -1,29 +1,20 @@
-#include "grid.hpp"
+#include "param.hpp"
 #include "pressure_solver.hpp"
 
 using namespace std;
 using namespace mfem;
 
-double q_func(Vector& x)
-{
-  const double rad = 0.02;
-  if (x(0) < rad && x(1) < rad) return 1.0; // injection
-  if (x(0) > (1.-rad) && x(1) > (1.-rad)) return -1.0; // production
-  return 0.0;
-}
-
 void PressureSolver(const Array<int> &block_offsets,
                     const Mesh& mesh,
-                    const Grid &grid,
+                    const Param& param,
                     FiniteElementSpace &V_space,
                     FiniteElementSpace &P_space,
                     GridFunctionCoefficient &saturation,
                     BlockVector &x)
 {
   const bool own_array = false;
-//  CWCoefficient K(saturation, MU_W, MU_O, grid.K_array, grid.n_cells, own_array);
-//  CWConstCoefficient Q(grid.Q_array, grid.n_cells, own_array);
-  FunctionCoefficient Q(q_func);
+  CWCoefficient K(saturation, MU_W, MU_O, param.K_array, param.n_cells, own_array);
+  CWConstCoefficient Q(param.Q_array, param.n_cells, own_array);
 
   BlockVector rhs(block_offsets);
 
@@ -40,10 +31,10 @@ void PressureSolver(const Array<int> &block_offsets,
   BilinearForm mVarf(&V_space);
   MixedBilinearForm bVarf(&V_space, &P_space);
 
-  mVarf.AddDomainIntegrator(new VectorFEMassIntegrator); // (K));
+  mVarf.AddDomainIntegrator(new VectorFEMassIntegrator(K));
   mVarf.Assemble();
 
-  bVarf.AddDomainIntegrator(new VectorFEDivergenceIntegrator()); //(K));
+  bVarf.AddDomainIntegrator(new VectorFEDivergenceIntegrator); //(K));
   bVarf.Assemble();
 
   Array<int> bdr_attr_is_ess(mesh.bdr_attributes.Max());
@@ -96,8 +87,13 @@ void PressureSolver(const Array<int> &block_offsets,
   solver.SetPrintLevel(0);
 
   x = 0.0;
-  solver.Mult(rhs, x); cout << flush;
+  solver.Mult(rhs, x);
+  cout << flush;
   MFEM_VERIFY(solver.GetConverged(), "The MINRES solver didn't converge");
 
+  delete invS;
+  delete invM;
+  delete S;
+  delete MinvBt;
   delete BT;
 }

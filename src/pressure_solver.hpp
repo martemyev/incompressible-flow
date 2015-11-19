@@ -4,11 +4,11 @@
 #include "config.hpp"
 #include "mfem.hpp"
 
-class Grid;
+class Param;
 
 void PressureSolver(const mfem::Array<int> &block_offsets,
                     const mfem::Mesh &mesh,
-                    const Grid &grid,
+                    const Param &param,
                     mfem::FiniteElementSpace &V_space,
                     mfem::FiniteElementSpace &P_space,
                     mfem::GridFunctionCoefficient &S,

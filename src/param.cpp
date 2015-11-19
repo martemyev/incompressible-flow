@@ -1,4 +1,4 @@
-#include "grid.hpp"
+#include "param.hpp"
 
 #if defined(TWO_PHASE_FLOW)
 double Krw(double S) { return S*S; }

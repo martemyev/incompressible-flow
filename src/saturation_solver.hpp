@@ -4,9 +4,10 @@
 #include "config.hpp"
 #include "mfem.hpp"
 
-class Grid;
+class Param;
 
-void SaturationSolver(const Grid &grid, mfem::GridFunction &S,
-                      mfem::VectorCoefficient &velocity, double global_dt);
+void SaturationSolver(const Param &grid, mfem::GridFunction &S,
+                      mfem::VectorCoefficient &velocity, int global_ti,
+                      double global_dt);
 
 #endif // SATURATION_SOLVER_HPP

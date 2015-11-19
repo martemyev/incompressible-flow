@@ -1,5 +1,5 @@
-#ifndef GRID_HPP
-#define GRID_HPP
+#ifndef PARAM_HPP
+#define PARAM_HPP
 
 #include "config.hpp"
 #include "mfem.hpp"
@@ -14,30 +14,45 @@ double Kro(double S);
 
 
 
-struct Grid
+struct Param
 {
-  int nx, ny;
-  double sx, sy;
-  double V;
-  double *K_array;
-  double *Q_array;
-  double *por_array;
-  double *r_array;
+  int nx, ny, nz;
   int n_cells;
+  double sx, sy, sz;
+  double V; // volume (area) of a cell
+  double *K_array; // permeability array (cell-wise constant - one value per cell)
+  double *Q_array; // pressure source (injection and production wells - inflow and outflow)
+  double *por_array; // array of porosity values (cell-wise constant)
+  double *R_array; // saturation source (cell-wise constant)
 
-  Grid(int _nx, int _ny, double _sx, double _sy)
-    : nx(_nx), ny(_ny), sx(_sx), sy(_sy), V(0.0),
-      K_array(nullptr), Q_array(nullptr), por_array(nullptr), r_array(nullptr)
+
+  Param(int _nx, int _ny, double _sx, double _sy)
+    : nx(_nx), ny(_ny), nz(1)
+    , sx(_sx), sy(_sy), sz(1.0)
+    , K_array(nullptr)
+    , Q_array(nullptr)
+    , por_array(nullptr)
+    , R_array(nullptr)
   {
-    double hx = sx / nx;
-    double hy = sy / ny;
-    V = hx*hy;
     n_cells = nx*ny;
+    V = sx*sy / n_cells;
   }
 
-  ~Grid()
+  Param(int _nx, int _ny, int _nz, double _sx, double _sy, double _sz)
+    : nx(_nx), ny(_ny), nz(_nz)
+    , sx(_sx), sy(_sy), sz(_sz)
+    , K_array(nullptr)
+    , Q_array(nullptr)
+    , por_array(nullptr)
+    , R_array(nullptr)
   {
-    delete[] r_array;
+    n_cells = nx*ny*nz;
+    V = sx*sy*sz / n_cells;
+  }
+
+  ~Param()
+  {
+    delete[] R_array;
     delete[] por_array;
     delete[] Q_array;
     delete[] K_array;
@@ -48,18 +63,17 @@ struct Grid
     K_array   = new double[n_cells];
     Q_array   = new double[n_cells];
     por_array = new double[n_cells];
-    r_array   = new double[n_cells];
+    R_array   = new double[n_cells];
     for (int i = 0; i < n_cells; ++i)
     {
       K_array[i]   = 1.0;
       Q_array[i]   = 0.0;
       por_array[i] = 1.0;
-      r_array[i]   = 0.0;
+      R_array[i]   = 0.0;
     }
     Q_array[0]         =  1.0; // injection well
     Q_array[n_cells-1] = -1.0; // production well
-//    r_array[n_cells-1] =  1.0;
-    r_array[0] =  1.0;
+    R_array[0]         =  1.0; // source of saturation
   }
 
 };
@@ -120,7 +134,7 @@ public:
                 "out of range: " + d2s(T.ElementNo));
     const double S = func.Eval(T, ip);
     const double val = Krw(S) / mu_w + Kro(S) / mu_o;
-    return val*val_array[T.ElementNo];
+    return 1./(val*val_array[T.ElementNo]);
   }
 
 protected:
@@ -131,4 +145,4 @@ protected:
   bool own_array;
 };
 
-#endif // GRID_HPP
+#endif // PARAM_HPP
