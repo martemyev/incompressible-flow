@@ -10,35 +10,17 @@
 using namespace std;
 using namespace mfem;
 
+void output_media_properties(const Param& param, int ti,
+                             const Vector& rho_array, const Vector& vp_array,
+                             const Vector& vs_array);
+
 
 
 int main(int argc, char **argv)
 {
-  int spacedim = 2;
-  int nx = 64, ny = 64, nz = 64;
-  double sx = 1.0, sy = 1.0, sz = 1.0;
-  int order_v = 1, order_p = 1, order_s = 0;
-  double t_final = 3000;
-  double dt = 100;
-  int nt = ceil(t_final / dt);
-  bool visualization = true;
-  int vis_steps = 100;
-
+  Param p;
   OptionsParser args(argc, argv);
-  args.AddOption(&spacedim, "-d", "--dim", "Space dimension of the problem");
-  args.AddOption(&nx, "-nx", "--nx", "Number of cells in x-direction");
-  args.AddOption(&ny, "-ny", "--ny", "Number of cells in y-direction");
-  args.AddOption(&nz, "-nz", "--nz", "Number of cells in z-direction");
-  args.AddOption(&sx, "-sx", "--sx", "Size of domain in x-direction");
-  args.AddOption(&sy, "-sy", "--sy", "Size of domain in y-direction");
-  args.AddOption(&sz, "-sz", "--sz", "Size of domain in z-direction");
-  args.AddOption(&order_v, "-ov", "--orderv", "Order (degree) of the finite elements for velocity");
-  args.AddOption(&order_p, "-op", "--orderp", "Order (degree) of the finite elements for pressure");
-  args.AddOption(&order_s, "-os", "--orders", "Order (degree) of the finite elements for saturation");
-  args.AddOption(&t_final, "-tf", "--t-final", "Final time; start time is 0.");
-  args.AddOption(&dt, "-dt", "--time-step", "Time step.");
-  args.AddOption(&visualization, "-vis", "--vis", "-no-vis", "--no-vis", "Enable or disable GLVis visualization.");
-  args.AddOption(&vis_steps, "-vs", "--vis-steps", "Visualize every n-th timestep.");
+  p.add_options(args);
   args.Parse();
   if (!args.Good())
   {
@@ -47,29 +29,20 @@ int main(int argc, char **argv)
   }
   args.PrintOptions(cout);
 
-  Param *param;
-  if (spacedim == 2)
-    param = new Param(nx, ny, sx, sz);
-  else if (spacedim == 3)
-    param = new Param(nx, ny, nz, sx, sy, sz);
-  else MFEM_ABORT("Unsupported spacedim: " + d2s(spacedim));
+  p.init_arrays();
 
-  param->init_arrays();
-
-  const bool generate_edges = true;
+  const bool gen_edges = true;
   Mesh *mesh;
-  if (spacedim == 2)
-    mesh = new Mesh(param->nx, param->ny, Element::QUADRILATERAL, generate_edges,
-                    param->sx, param->sy);
-  else if (spacedim == 3)
-    mesh = new Mesh(param->nx, param->ny, param->nz, Element::QUADRILATERAL,
-                    generate_edges, param->sx, param->sy, param->sz);
+  if (p.spacedim == 2)
+    mesh = new Mesh(p.nx, p.ny, Element::QUADRILATERAL, gen_edges, p.sx, p.sy);
+  else if (p.spacedim == 3)
+    mesh = new Mesh(p.nx, p.ny, p.nz, Element::QUADRILATERAL, gen_edges, p.sx, p.sy, p.sz);
 
   const int dim = mesh->Dimension();
 
-  FiniteElementCollection *hdiv_coll = new RT_FECollection(order_v, dim); // for velocity
-  FiniteElementCollection *l2_coll   = new L2_FECollection(order_p, dim); // for pressure
-  DG_FECollection         *dg_coll   = new DG_FECollection(order_s, dim); // for saturation
+  FiniteElementCollection *hdiv_coll = new RT_FECollection(p.order_v, dim); // for velocity
+  FiniteElementCollection *l2_coll   = new L2_FECollection(p.order_p, dim); // for pressure
+  DG_FECollection         *dg_coll   = new DG_FECollection(p.order_s, dim); // for saturation
 
   FiniteElementSpace V_space(mesh, hdiv_coll);
   FiniteElementSpace P_space(mesh, l2_coll);
@@ -99,63 +72,90 @@ int main(int argc, char **argv)
 
   Vector P_nodal, S_nodal, Vx_nodal, Vy_nodal, Vz_nodal;
 
+  Vector rho_array(p.n_cells);
+  Vector vp_array(p.n_cells);
+  Vector vs_array(p.n_cells);
+  rho_array = 2100.;
+  vp_array  = 2400.;
+  vs_array  = 1600.;
+  output_media_properties(p, 0, rho_array, vp_array, vs_array);
+  double K_saturated; // bulk modulus of the saturated media
+  double Kframe = K_frame(K_MINERAL_MATRIX, K_FLUID_COMPONENT,
+                          F_MINERAL_MATRIX, F_FLUID_COMPONENT);
+
   string fname;
+  int nt = ceil(p.t_final / p.dt);
   for (int ti = 1; ti <= nt; ++ti)
   {
     const string tstr = d2s(ti, 0, 0, 0, 6);
 
-    PressureSolver(block_offsets, *mesh, *param, V_space, P_space, saturation, x);
+    PressureSolver(block_offsets, *mesh, p, V_space, P_space, saturation, x);
 
     {
 #if defined(TWO_PHASE_FLOW)
-      fname = "pressure_2phase_" + tstr + ".vts";
+      fname = "pressure_" + d2s(p.spacedim) + "D_2phase_" + tstr + ".vts";
 #else
-      fname = "pressure_1phase_" + tstr + ".vts";
+      fname = "pressure_" + d2s(p.spacedim) + "D_1phase_" + tstr + ".vts";
 #endif
       P.GetNodalValues(P_nodal);
-      if (spacedim == 2)
-        write_vts_scalar(fname, "pressure", param->sx, param->sy,
-                         param->nx, param->ny, P_nodal);
-      else if (spacedim == 3)
-        write_vts_scalar(fname, "pressure", param->sx, param->sy, param->sz,
-                         param->nx, param->ny, param->nz, P_nodal);
+      if (p.spacedim == 2)
+        write_vts_scalar(fname, "pressure", p.sx, p.sy,
+                         p.nx, p.ny, P_nodal);
+      else if (p.spacedim == 3)
+        write_vts_scalar(fname, "pressure", p.sx, p.sy, p.sz,
+                         p.nx, p.ny, p.nz, P_nodal);
     }
 
     {
 #if defined(TWO_PHASE_FLOW)
-      fname = "velocity_2phase_" + tstr + ".vts";
+      fname = "velocity_" + d2s(p.spacedim) + "D_2phase_" + tstr + ".vts";
 #else
-      fname = "velocity_1phase_" + tstr + ".vts";
+      fname = "velocity_" + d2s(p.spacedim) + "D_1phase_" + tstr + ".vts";
 #endif
       V.GetNodalValues(Vx_nodal, 1);
       V.GetNodalValues(Vy_nodal, 2);
-      if (spacedim == 2)
-        write_vts_vector(fname, "velocity", param->sx, param->sy,
-                         param->nx, param->ny, Vx_nodal, Vy_nodal);
-      else if (spacedim == 3)
+      if (p.spacedim == 2)
+        write_vts_vector(fname, "velocity", p.sx, p.sy,
+                         p.nx, p.ny, Vx_nodal, Vy_nodal);
+      else if (p.spacedim == 3)
       {
         V.GetNodalValues(Vz_nodal, 3);
-        write_vts_vector(fname, "velocity", param->sx, param->sy, param->sz,
-                         param->nx, param->ny, param->nz,
+        write_vts_vector(fname, "velocity", p.sx, p.sy, p.sz,
+                         p.nx, p.ny, p.nz,
                          Vx_nodal, Vy_nodal, Vz_nodal);
       }
     }
 
-    SaturationSolver(*param, S, velocity, ti, dt);
+    SaturationSolver(p, S, velocity, ti, p.dt);
 
     {
 #if defined(TWO_PHASE_FLOW)
-      fname = "saturation_2phase_" + tstr + ".vts";
+      fname = "saturation_" + d2s(p.spacedim) + "D_2phase_" + tstr + ".vts";
 #else
-      fname = "saturation_1phase_" + tstr + ".vts";
+      fname = "saturation_" + d2s(p.spacedim) + "D_1phase_" + tstr + ".vts";
 #endif
       S.GetNodalValues(S_nodal);
-      if (spacedim == 2)
-        write_vts_scalar(fname, "saturation", param->sx, param->sy,
-                         param->nx, param->ny, S_nodal);
-      else if (spacedim == 3)
-        write_vts_scalar(fname, "saturation", param->sx, param->sy, param->sz,
-                         param->nx, param->ny, param->nz, S_nodal);
+      if (p.spacedim == 2)
+        write_vts_scalar(fname, "saturation", p.sx, p.sy,
+                         p.nx, p.ny, S_nodal);
+      else if (p.spacedim == 3)
+        write_vts_scalar(fname, "saturation", p.sx, p.sy, p.sz,
+                         p.nx, p.ny, p.nz, S_nodal);
+    }
+
+    {
+      Vector S_w(p.n_cells); // water saturation values in each cell
+      if (p.spacedim == 2)
+        compute_in_cells(p.sx, p.sy, p.nx, p.ny, *mesh, S, S_w);
+      else if (p.spacedim == 3)
+        compute_in_cells(p.sx, p.sy, p.sz, p.nx, p.ny,
+                         p.nz, *mesh, S, S_w);
+      else MFEM_ABORT("Not supported spacedim");
+
+      Gassmann(S, p, K_MINERAL_MATRIX, Kframe, RHO_GRAIN,
+               p.por_array, rho_array, vp_array, vs_array, K_saturated);
+
+      output_media_properties(p, ti, rho_array, vp_array, vs_array);
     }
 
     cout << "time step " << ti << " is done" << endl;
@@ -165,17 +165,62 @@ int main(int argc, char **argv)
       cout << "Saturation went up to more than 1.1. The process stops." << endl;
       break;
     }
-
-//    Gassmann(S,
   }
 
-
   delete mesh;
-  delete param;
 
   delete hdiv_coll;
   delete l2_coll;
   delete dg_coll;
 
   return 0;
+}
+
+
+
+void output_media_properties(const Param& p, int ti,
+                             const Vector& rho_array, const Vector& vp_array,
+                             const Vector& vs_array)
+{
+  string fname_rho_bin, fname_vp_bin, fname_vs_bin;
+  string fname_rho_vts, fname_vp_vts, fname_vs_vts;
+
+#if defined(TWO_PHASE_FLOW)
+  fname_rho_bin = "2phase_" + d2s(p.n_cells) + "_t" + d2s(ti) + ".rho";
+  fname_vp_bin  = "2phase_" + d2s(p.n_cells) + "_t" + d2s(ti) + ".vp";
+  fname_vs_bin  = "2phase_" + d2s(p.n_cells) + "_t" + d2s(ti) + ".vs";
+  fname_rho_vts = "rho_" + d2s(p.spacedim) + "D_2phase_" + d2s(ti) + ".vts";
+  fname_vp_vts  = "vp_" + d2s(p.spacedim) + "D_2phase_"  + d2s(ti) + ".vts";
+  fname_vs_vts  = "vs_" + d2s(p.spacedim) + "D_2phase_"  + d2s(ti) + ".vts";
+#else
+  fname_rho_bin = "1phase_" + d2s(p.n_cells) + "_t" + d2s(ti) + ".rho";
+  fname_vp_bin  = "1phase_" + d2s(p.n_cells) + "_t" + d2s(ti) + ".vp";
+  fname_vs_bin  = "1phase_" + d2s(p.n_cells) + "_t" + d2s(ti) + ".vs";
+  fname_rho_vts = "rho_" + d2s(p.spacedim) + "D_1phase_" + d2s(ti) + ".vts";
+  fname_vp_vts  = "vp_" + d2s(p.spacedim) + "D_1phase_"  + d2s(ti) + ".vts";
+  fname_vs_vts  = "vs_" + d2s(p.spacedim) + "D_1phase_"  + d2s(ti) + ".vts";
+#endif
+
+  write_binary(fname_rho_bin.c_str(), p.n_cells, rho_array.GetData());
+  write_binary(fname_vp_bin.c_str(),  p.n_cells, vp_array.GetData());
+  write_binary(fname_vs_bin.c_str(),  p.n_cells, vs_array.GetData());
+
+  if (p.spacedim == 2)
+  {
+    write_vts_scalar_cells(fname_rho_vts, "density", p.sx, p.sy,
+                           p.nx, p.ny, rho_array);
+    write_vts_scalar_cells(fname_vp_vts, "vp", p.sx, p.sy,
+                           p.nx, p.ny, vp_array);
+    write_vts_scalar_cells(fname_vs_vts, "vs", p.sx, p.sy,
+                           p.nx, p.ny, vs_array);
+  }
+  else if (p.spacedim == 3)
+  {
+    write_vts_scalar_cells(fname_rho_vts, "density", p.sx, p.sy, p.sz,
+                           p.nx, p.ny, p.nz, rho_array);
+    write_vts_scalar_cells(fname_vp_vts, "vp", p.sx, p.sy, p.sz,
+                           p.nx, p.ny, p.nz, vp_array);
+    write_vts_scalar_cells(fname_vs_vts, "vs", p.sx, p.sy, p.sz,
+                           p.nx, p.ny, p.nz, vs_array);
+  }
 }

@@ -64,7 +64,10 @@ void SaturationSolver(const Param &param, GridFunction &S,
   M_solver.SetMaxIter(100);
   M_solver.SetPrintLevel(0);
 
-  Vector y(N), z(N), fs(N);
+  Vector y(N), z(N);
+#if defined(TWO_PHASE_FLOW)
+  Vector fs(N);
+#endif
 
 //  int nt = 400;
   double dt = 1e-2; //global_dt/nt;

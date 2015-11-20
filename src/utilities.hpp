@@ -8,8 +8,11 @@
 
 namespace mfem
 {
+  class GridFunction;
+  class Mesh;
   class Vector;
 }
+class Param;
 
 /**
  * Convert the data of any type which has oveloaded operator '<<' to string
@@ -128,5 +131,34 @@ void write_vts_scalar(const std::string& filename, const std::string& solname,
 void write_vts_scalar(const std::string& filename, const std::string& solname,
                       double sx, double sy, int nx, int ny,
                       const mfem::Vector& sol);
+void write_vts_scalar_cells(const std::string& filename, const std::string& solname,
+                            double sx, double sy, int nx, int ny,
+                            const mfem::Vector& sol);
+void write_vts_scalar_cells(const std::string& filename, const std::string& solname,
+                            double sx, double sy, double sz, int nx, int ny, int nz,
+                            const mfem::Vector& sol);
+
+void compute_in_cells(double sx, double sy, int nx, int ny,
+                      const mfem::Mesh& mesh, const mfem::GridFunction& U,
+                      mfem::Vector& values);
+void compute_in_cells(double sx, double sy, double sz, int nx, int ny, int nz,
+                      const mfem::Mesh& mesh, const mfem::GridFunction& U,
+                      mfem::Vector& values);
+
+double K_func(double vp, double vs, double rho);
+double G_func(double vs, double rho);
+double vp_func(double K, double G, double rho);
+double vs_func(double G, double rho);
+
+double rho_B(double rho_fl, double rho_g, double phi);
+double K_fl(double S_w, double K_w, double K_o);
+double rho_fl(double S_w, double rho_w, double rho_o);
+//double K_frame(double K_sat, double K_m, double K_fl, double phi);
+double K_frame(double K1, double K2, double F1, double F2);
+double K_sat(double K_frame, double K_m, double K_fl, double phi);
+
+void Gassmann(const mfem::Vector& S, const Param& param, double K_m,
+              double K_frame,double rho_gr, double *phi, double *rho,
+              double *vp, double *vs, double &Ksat);
 
 #endif // UTILITIES_HPP
