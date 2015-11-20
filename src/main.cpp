@@ -23,6 +23,9 @@ void output_seismic_properties(const Param& p, int ti, const Vector& rho_array,
 
 int main(int argc, char **argv)
 {
+  StopWatch total_time;
+  total_time.Start();
+
   Param p;
   OptionsParser args(argc, argv);
   p.add_options(args);
@@ -75,8 +78,6 @@ int main(int argc, char **argv)
   GridFunctionCoefficient saturation(&S);
   VectorGridFunctionCoefficient velocity(&V);
 
-  Vector P_nodal, S_nodal, Vx_nodal, Vy_nodal, Vz_nodal;
-
   Vector rho_array(p.n_cells);
   Vector vp_array(p.n_cells);
   Vector vs_array(p.n_cells);
@@ -88,7 +89,11 @@ int main(int argc, char **argv)
   double Kframe = K_frame(K_MINERAL_MATRIX, K_FLUID_COMPONENT,
                           F_MINERAL_MATRIX, F_FLUID_COMPONENT);
 
+  StopWatch global_time_loop;
+  global_time_loop.Start();
+
   int nt = ceil(p.t_final / p.dt);
+  cout << "Number of global time steps: " << nt << endl;
   for (int ti = 1; ti <= nt; ++ti)
   {
     const string tstr = d2s(ti, 0, 0, 0, 6);
@@ -127,14 +132,21 @@ int main(int argc, char **argv)
     }
   }
 
+  cout << "Time of the global time loop: " << global_time_loop.RealTime()
+       << " sec" << endl;
+
   delete mesh;
 
   delete hdiv_coll;
   delete l2_coll;
   delete dg_coll;
 
+  cout << "TOTAL TIME: " << total_time.RealTime() << " sec" << endl;
+
   return 0;
 }
+
+
 
 void output_scalar(const Param& p, const GridFunction& P, const string& tstr,
                    const string& name)

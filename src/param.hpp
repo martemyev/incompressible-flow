@@ -13,6 +13,17 @@ double Krw(double S);
 double Kro(double S);
 
 
+struct DarcySolverParam
+{
+  int maxiter;
+  double rtol;
+  double atol;
+  int print_level;
+
+  DarcySolverParam();
+  void add_options(mfem::OptionsParser& args);
+};
+
 
 struct Param
 {
@@ -32,12 +43,18 @@ struct Param
   int vis_steps_local;
   int seis_steps;
 
+  double K; // constant permeability
+  double phi; // constant porosity
+
+  std::string K_file; // binary file for the permeability
+  std::string phi_file; // binary file for the porosity
+
+  DarcySolverParam darcy;
 
   Param();
   ~Param();
   void init_arrays();
   void add_options(mfem::OptionsParser& args);
-
 };
 
 

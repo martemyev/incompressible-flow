@@ -11,6 +11,27 @@ double Krw(double S) { return S; }
 double Kro(double S) { return (1.0-S); }
 #endif // TWO_PHASE_FLOW
 
+
+
+DarcySolverParam::DarcySolverParam()
+  : maxiter(1000)
+  , rtol(1e-6)
+  , atol(1e-10)
+  , print_level(0)
+{ }
+
+void DarcySolverParam::add_options(OptionsParser &args)
+{
+  args.AddOption(&maxiter, "-darcy-maxiter", "--darcy-maxiter", "Max number of iterations for the Darcy solver");
+  args.AddOption(&rtol, "-darcy-rtol", "--darcy-rtol", "Rel tolerance for the Darcy solver");
+  args.AddOption(&atol, "-darcy-atol", "--darcy-atol", "Abs tolerance for the Darcy solver");
+  args.AddOption(&print_level, "-darcy-print-level", "--darcy-print-level", "Print level for the Darcy solver");
+}
+
+
+
+
+
 Param::Param()
   : spacedim(2)
   , nx(0), ny(0), nz(0), n_cells(0)
@@ -21,9 +42,9 @@ Param::Param()
   , R_array(nullptr)
   , order_v(1), order_p(1), order_s(0)
   , t_final(200), dt(100)
-  , vis_steps_global(100)
+  , vis_steps_global(1)
   , vis_steps_local(200)
-  , seis_steps(100)
+  , seis_steps(1)
 { }
 
 Param::~Param()
@@ -75,4 +96,6 @@ void Param::add_options(OptionsParser &args)
   args.AddOption(&vis_steps_global, "-vsg", "--vis-steps-global", "Visualize every n-th timestep in the global time loop.");
   args.AddOption(&vis_steps_local, "-vsl", "--vis-steps-local", "Visualize every n-th timestep in the local time loops.");
   args.AddOption(&seis_steps, "-ss", "--seis-steps", "Compute seismic properties with Gassmann and output them every n-th timestep.");
+
+  darcy.add_options(args);
 }

@@ -12,6 +12,9 @@ void PressureSolver(const Array<int> &block_offsets,
                     GridFunctionCoefficient &saturation,
                     BlockVector &x)
 {
+  StopWatch timer;
+  timer.Start();
+
   const bool own_array = false;
   CWCoefficient K(saturation, MU_W, MU_O, param.K_array, param.n_cells, own_array);
   CWConstCoefficient Q(param.Q_array, param.n_cells, own_array);
@@ -74,22 +77,31 @@ void PressureSolver(const Array<int> &block_offsets,
   darcyPrec.SetDiagonalBlock(0, invM);
   darcyPrec.SetDiagonalBlock(1, invS);
 
-  const int maxiter = 1000;
-  const double rtol = 1e-6;
-  const double atol = 1e-10;
-
   MINRESSolver solver;
-  solver.SetMaxIter(maxiter);
-  solver.SetRelTol(rtol);
-  solver.SetAbsTol(atol);
+  solver.SetMaxIter(param.darcy.maxiter);
+  solver.SetRelTol(param.darcy.rtol);
+  solver.SetAbsTol(param.darcy.atol);
   solver.SetOperator(darcyMatrix);
   solver.SetPreconditioner(darcyPrec);
-  solver.SetPrintLevel(0);
+  solver.SetPrintLevel(param.darcy.print_level);
 
   x = 0.0;
   solver.Mult(rhs, x);
-  cout << flush;
-  MFEM_VERIFY(solver.GetConverged(), "The MINRES solver didn't converge");
+  if (solver.GetConverged())
+  {
+    cout << "Darcy solver converged. Iter = " << solver.GetNumIterations()
+         << ". Final norm = " << solver.GetFinalNorm()
+         << ". Time = " << timer.RealTime() << " sec"
+         << endl;
+  }
+  else
+  {
+    cerr << "Darcy solver DIDN'T converge. Iter = " << solver.GetNumIterations()
+         << ". Final norm = " << solver.GetFinalNorm()
+         << ". Time = " << timer.RealTime() << " sec"
+         << endl;
+    MFEM_ABORT("The solver didn't converge => terminating");
+  }
 
   delete invS;
   delete invM;
