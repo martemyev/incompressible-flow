@@ -28,7 +28,10 @@ struct Param
 
   int order_v, order_p, order_s;
   double t_final, dt;
-  int vis_steps;
+  int vis_steps_global;
+  int vis_steps_local;
+  int seis_steps;
+
 
   Param();
   ~Param();

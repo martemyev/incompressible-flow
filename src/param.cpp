@@ -21,7 +21,9 @@ Param::Param()
   , R_array(nullptr)
   , order_v(1), order_p(1), order_s(0)
   , t_final(200), dt(100)
-  , vis_steps(100)
+  , vis_steps_global(100)
+  , vis_steps_local(200)
+  , seis_steps(100)
 { }
 
 Param::~Param()
@@ -70,5 +72,7 @@ void Param::add_options(OptionsParser &args)
   args.AddOption(&order_s, "-os", "--orders", "Order (degree) of the finite elements for saturation");
   args.AddOption(&t_final, "-tf", "--t-final", "Final time; start time is 0.");
   args.AddOption(&dt, "-dt", "--time-step", "Time step.");
-  args.AddOption(&vis_steps, "-vs", "--vis-steps", "Visualize every n-th timestep.");
+  args.AddOption(&vis_steps_global, "-vsg", "--vis-steps-global", "Visualize every n-th timestep in the global time loop.");
+  args.AddOption(&vis_steps_local, "-vsl", "--vis-steps-local", "Visualize every n-th timestep in the local time loops.");
+  args.AddOption(&seis_steps, "-ss", "--seis-steps", "Compute seismic properties with Gassmann and output them every n-th timestep.");
 }

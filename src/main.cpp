@@ -10,9 +10,14 @@
 using namespace std;
 using namespace mfem;
 
-void output_media_properties(const Param& param, int ti,
-                             const Vector& rho_array, const Vector& vp_array,
-                             const Vector& vs_array);
+void output_scalar(const Param& p, const GridFunction& P, const string& tstr,
+                   const string& name);
+
+void output_vector(const Param& p, const GridFunction& V, const string& tstr,
+                   const string& name);
+
+void output_seismic_properties(const Param& p, int ti, const Vector& rho_array,
+                               const Vector& vp_array, const Vector& vs_array);
 
 
 
@@ -78,84 +83,39 @@ int main(int argc, char **argv)
   rho_array = 2100.;
   vp_array  = 2400.;
   vs_array  = 1600.;
-  output_media_properties(p, 0, rho_array, vp_array, vs_array);
+  output_seismic_properties(p, 0, rho_array, vp_array, vs_array);
   double K_saturated; // bulk modulus of the saturated media
   double Kframe = K_frame(K_MINERAL_MATRIX, K_FLUID_COMPONENT,
                           F_MINERAL_MATRIX, F_FLUID_COMPONENT);
 
-  string fname;
   int nt = ceil(p.t_final / p.dt);
   for (int ti = 1; ti <= nt; ++ti)
   {
     const string tstr = d2s(ti, 0, 0, 0, 6);
 
     PressureSolver(block_offsets, *mesh, p, V_space, P_space, saturation, x);
-
-    {
-#if defined(TWO_PHASE_FLOW)
-      fname = "pressure_" + d2s(p.spacedim) + "D_2phase_" + tstr + ".vts";
-#else
-      fname = "pressure_" + d2s(p.spacedim) + "D_1phase_" + tstr + ".vts";
-#endif
-      P.GetNodalValues(P_nodal);
-      if (p.spacedim == 2)
-        write_vts_scalar(fname, "pressure", p.sx, p.sy,
-                         p.nx, p.ny, P_nodal);
-      else if (p.spacedim == 3)
-        write_vts_scalar(fname, "pressure", p.sx, p.sy, p.sz,
-                         p.nx, p.ny, p.nz, P_nodal);
-    }
-
-    {
-#if defined(TWO_PHASE_FLOW)
-      fname = "velocity_" + d2s(p.spacedim) + "D_2phase_" + tstr + ".vts";
-#else
-      fname = "velocity_" + d2s(p.spacedim) + "D_1phase_" + tstr + ".vts";
-#endif
-      V.GetNodalValues(Vx_nodal, 1);
-      V.GetNodalValues(Vy_nodal, 2);
-      if (p.spacedim == 2)
-        write_vts_vector(fname, "velocity", p.sx, p.sy,
-                         p.nx, p.ny, Vx_nodal, Vy_nodal);
-      else if (p.spacedim == 3)
-      {
-        V.GetNodalValues(Vz_nodal, 3);
-        write_vts_vector(fname, "velocity", p.sx, p.sy, p.sz,
-                         p.nx, p.ny, p.nz,
-                         Vx_nodal, Vy_nodal, Vz_nodal);
-      }
-    }
-
     SaturationSolver(p, S, velocity, ti, p.dt);
 
+    if (ti % p.vis_steps_global == 0) // visualize the solution
     {
-#if defined(TWO_PHASE_FLOW)
-      fname = "saturation_" + d2s(p.spacedim) + "D_2phase_" + tstr + ".vts";
-#else
-      fname = "saturation_" + d2s(p.spacedim) + "D_1phase_" + tstr + ".vts";
-#endif
-      S.GetNodalValues(S_nodal);
-      if (p.spacedim == 2)
-        write_vts_scalar(fname, "saturation", p.sx, p.sy,
-                         p.nx, p.ny, S_nodal);
-      else if (p.spacedim == 3)
-        write_vts_scalar(fname, "saturation", p.sx, p.sy, p.sz,
-                         p.nx, p.ny, p.nz, S_nodal);
+      output_scalar(p, P, tstr, "pressure");
+      output_vector(p, V, tstr, "velocity");
+      output_scalar(p, S, tstr, "saturation");
     }
 
+    if (ti % p.seis_steps == 0) // update seismic properties
     {
       Vector S_w(p.n_cells); // water saturation values in each cell
       if (p.spacedim == 2)
         compute_in_cells(p.sx, p.sy, p.nx, p.ny, *mesh, S, S_w);
       else if (p.spacedim == 3)
-        compute_in_cells(p.sx, p.sy, p.sz, p.nx, p.ny,
-                         p.nz, *mesh, S, S_w);
+        compute_in_cells(p.sx, p.sy, p.sz, p.nx, p.ny, p.nz, *mesh, S, S_w);
       else MFEM_ABORT("Not supported spacedim");
 
       Gassmann(S, p, K_MINERAL_MATRIX, Kframe, RHO_GRAIN,
                p.por_array, rho_array, vp_array, vs_array, K_saturated);
 
-      output_media_properties(p, ti, rho_array, vp_array, vs_array);
+      output_seismic_properties(p, ti, rho_array, vp_array, vs_array);
     }
 
     cout << "time step " << ti << " is done" << endl;
@@ -176,11 +136,53 @@ int main(int argc, char **argv)
   return 0;
 }
 
+void output_scalar(const Param& p, const GridFunction& P, const string& tstr,
+                   const string& name)
+{
+#if defined(TWO_PHASE_FLOW)
+  string fname = name + "_" + d2s(p.spacedim) + "D_2phase_" + tstr + ".vts";
+#else
+  string fname = name + "_" + d2s(p.spacedim) + "D_1phase_" + tstr + ".vts";
+#endif
+  Vector P_nodal;
+  P.GetNodalValues(P_nodal);
+  if (p.spacedim == 2)
+    write_vts_scalar(fname, name, p.sx, p.sy, p.nx, p.ny, P_nodal);
+  else if (p.spacedim == 3)
+    write_vts_scalar(fname, name, p.sx, p.sy, p.sz, p.nx, p.ny, p.nz, P_nodal);
+  else MFEM_ABORT("Not supported spacedim");
+}
 
 
-void output_media_properties(const Param& p, int ti,
-                             const Vector& rho_array, const Vector& vp_array,
-                             const Vector& vs_array)
+
+void output_vector(const Param& p, const GridFunction& V, const string& tstr,
+                   const string& name)
+{
+#if defined(TWO_PHASE_FLOW)
+  string fname = name + "_" + d2s(p.spacedim) + "D_2phase_" + tstr + ".vts";
+#else
+  string fname = name + "_" + d2s(p.spacedim) + "D_1phase_" + tstr + ".vts";
+#endif
+  Vector Vx_nodal, Vy_nodal;
+  V.GetNodalValues(Vx_nodal, 1);
+  V.GetNodalValues(Vy_nodal, 2);
+  if (p.spacedim == 2)
+    write_vts_vector(fname, name, p.sx, p.sy, p.nx, p.ny, Vx_nodal, Vy_nodal);
+  else if (p.spacedim == 3)
+  {
+    Vector Vz_nodal;
+    V.GetNodalValues(Vz_nodal, 3);
+    write_vts_vector(fname, name, p.sx, p.sy, p.sz, p.nx, p.ny, p.nz,
+                     Vx_nodal, Vy_nodal, Vz_nodal);
+  }
+  else MFEM_ABORT("Not supported spacedim");
+}
+
+
+
+void output_seismic_properties(const Param& p, int ti,
+                               const Vector& rho_array, const Vector& vp_array,
+                               const Vector& vs_array)
 {
   string fname_rho_bin, fname_vp_bin, fname_vs_bin;
   string fname_rho_vts, fname_vp_vts, fname_vs_vts;
@@ -223,4 +225,5 @@ void output_media_properties(const Param& p, int ti,
     write_vts_scalar_cells(fname_vs_vts, "vs", p.sx, p.sy, p.sz,
                            p.nx, p.ny, p.nz, vs_array);
   }
+  else MFEM_ABORT("Not supported spacedim");
 }

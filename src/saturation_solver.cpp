@@ -85,23 +85,25 @@ void SaturationSolver(const Param &param, GridFunction &S,
      y *= dt;
      S += y;
 
-     if (ti % 200 == 0)
+     if (ti % param.vis_steps_local == 0)
      {
         Vector S_nodal;
         S.GetNodalValues(S_nodal);
+        string tstr = d2s(ti, 0, 0, 0, 6);
 #if defined(TWO_PHASE_FLOW)
-        string fname = "saturation_2phase_" + d2s(global_ti) + "local_" +
-                       d2s(ti, 0, 0, 0, 6) + ".vts";
+        string fname = "saturation_" + d2s(param.spacedim) + "D_2phase_glob" +
+                       d2s(global_ti) + "_loc_" + tstr + ".vts";
 #else
-        string fname = "saturation_1phase_" + d2s(global_ti) + "local_" +
-                       d2s(ti, 0, 0, 0, 6) + ".vts";
+        string fname = "saturation_" + d2s(param.spacedim) + "D_1phase_glob" +
+                       d2s(global_ti) + "_loc_" + tstr + ".vts";
 #endif
-        if (param.n_cells == param.nx*param.ny)
+        if (param.spacedim == 2)
           write_vts_scalar(fname, "saturation", param.sx, param.sy,
                            param.nx, param.ny, S_nodal);
-        else if (param.n_cells == param.nx*param.ny*param.nz)
+        else if (param.spacedim == 3)
           write_vts_scalar(fname, "saturation", param.sx, param.sy, param.sz,
                            param.nx, param.ny, param.nz, S_nodal);
+        else MFEM_ABORT("Not supported spacedim");
      }
   }
 
