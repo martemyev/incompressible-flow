@@ -38,19 +38,23 @@ Param::Param()
   , sx(0.0), sy(0.0), sz(0.0), V(0.0)
   , K_array(nullptr)
   , Q_array(nullptr)
-  , por_array(nullptr)
+  , phi_array(nullptr)
   , R_array(nullptr)
   , order_v(1), order_p(1), order_s(0)
   , t_final(200), dt(100)
   , vis_steps_global(1)
   , vis_steps_local(200)
   , seis_steps(1)
+  , K(1.0)
+  , phi(1.0)
+  , K_file("no-file")
+  , phi_file("no-file")
 { }
 
 Param::~Param()
 {
   delete[] R_array;
-  delete[] por_array;
+  delete[] phi_array;
   delete[] Q_array;
   delete[] K_array;
 }
@@ -65,13 +69,23 @@ void Param::init_arrays()
 
   K_array   = new double[n_cells];
   Q_array   = new double[n_cells];
-  por_array = new double[n_cells];
+  phi_array = new double[n_cells];
   R_array   = new double[n_cells];
+
+  if (K_file == "no-file")
+    for (int i = 0; i < n_cells; ++i) K_array[i] = K;
+  else
+    read_binary(K_file.c_str(), n_cells, K_array);
+
+  if (phi_file == "no-file")
+    for (int i = 0; i < n_cells; ++i) phi_array[i] = phi;
+  else
+    read_binary(phi_file.c_str(), n_cells, phi_array);
+
+  // sources and sinks
   for (int i = 0; i < n_cells; ++i)
   {
-    K_array[i]   = 1.0;
     Q_array[i]   = 0.0;
-    por_array[i] = 1.0;
     R_array[i]   = 0.0;
   }
   Q_array[0]         =  1.0; // injection well

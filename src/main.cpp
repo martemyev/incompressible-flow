@@ -118,7 +118,7 @@ int main(int argc, char **argv)
       else MFEM_ABORT("Not supported spacedim");
 
       Gassmann(S, p, K_MINERAL_MATRIX, Kframe, RHO_GRAIN,
-               p.por_array, rho_array, vp_array, vs_array, K_saturated);
+               p.phi_array, rho_array, vp_array, vs_array, K_saturated);
 
       output_seismic_properties(p, ti, rho_array, vp_array, vs_array);
     }

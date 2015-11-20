@@ -23,10 +23,10 @@ void SaturationSolver(const Param &param, GridFunction &S,
   FiniteElementSpace &S_space = *S.FESpace();
 
   const bool own_array = false;
-  CWConstCoefficient Por(param.por_array, param.n_cells, own_array);
+  CWConstCoefficient Phi(param.phi_array, param.n_cells, own_array);
 
   BilinearForm m(&S_space);
-  m.AddDomainIntegrator(new MassIntegrator(Por));
+  m.AddDomainIntegrator(new MassIntegrator(Phi));
   BilinearForm k(&S_space);
   k.AddDomainIntegrator(new ConvectionIntegrator(velocity, -1.0));
   k.AddInteriorFaceIntegrator(

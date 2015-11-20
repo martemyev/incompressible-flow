@@ -34,7 +34,7 @@ struct Param
   double V; // volume (area) of a cell
   double *K_array; // permeability array (cell-wise constant - one value per cell)
   double *Q_array; // pressure source (injection and production wells - inflow and outflow)
-  double *por_array; // array of porosity values (cell-wise constant)
+  double *phi_array; // array of porosity values (cell-wise constant)
   double *R_array; // saturation source (cell-wise constant)
 
   int order_v, order_p, order_s;
