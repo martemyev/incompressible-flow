@@ -69,6 +69,8 @@ void SaturationSolver(const Param &param, GridFunction &S,
   Vector fs(N);
 #endif
 
+  string extra = (string)param.extra + "_";
+
 //  int nt = 400;
   double dt = 1e-2; //global_dt/nt;
   int nt = global_dt / dt;
@@ -85,16 +87,16 @@ void SaturationSolver(const Param &param, GridFunction &S,
      y *= dt;
      S += y;
 
-     if (ti % param.vis_steps_local == 0)
+     if (param.vis_steps_local > 0 && ti % param.vis_steps_local == 0)
      {
         Vector S_nodal;
         S.GetNodalValues(S_nodal);
         string tstr = d2s(ti, 0, 0, 0, 6);
 #if defined(TWO_PHASE_FLOW)
-        string fname = "saturation_" + d2s(param.spacedim) + "D_2phase_glob" +
+        string fname = "saturation_" + extra + d2s(param.spacedim) + "D_2phase_glob" +
                        d2s(global_ti) + "_loc_" + tstr + ".vts";
 #else
-        string fname = "saturation_" + d2s(param.spacedim) + "D_1phase_glob" +
+        string fname = "saturation_" + extra + d2s(param.spacedim) + "D_1phase_glob" +
                        d2s(global_ti) + "_loc_" + tstr + ".vts";
 #endif
         if (param.spacedim == 2)

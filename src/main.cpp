@@ -152,9 +152,11 @@ void output_scalar(const Param& p, const GridFunction& P, const string& tstr,
                    const string& name)
 {
 #if defined(TWO_PHASE_FLOW)
-  string fname = name + "_" + d2s(p.spacedim) + "D_2phase_" + tstr + ".vts";
+  string fname = name + "_" + p.extra + "_" + d2s(p.spacedim) + "D_2phase_" +
+                 tstr + ".vts";
 #else
-  string fname = name + "_" + d2s(p.spacedim) + "D_1phase_" + tstr + ".vts";
+  string fname = name + "_" + p.extra + "_" + d2s(p.spacedim) + "D_1phase_" +
+                 tstr + ".vts";
 #endif
   Vector P_nodal;
   P.GetNodalValues(P_nodal);
@@ -171,9 +173,11 @@ void output_vector(const Param& p, const GridFunction& V, const string& tstr,
                    const string& name)
 {
 #if defined(TWO_PHASE_FLOW)
-  string fname = name + "_" + d2s(p.spacedim) + "D_2phase_" + tstr + ".vts";
+  string fname = name + "_" + p.extra + "_" + d2s(p.spacedim) + "D_2phase_" +
+                 tstr + ".vts";
 #else
-  string fname = name + "_" + d2s(p.spacedim) + "D_1phase_" + tstr + ".vts";
+  string fname = name + "_" + p.extra + "_" + d2s(p.spacedim) + "D_1phase_" +
+                 tstr + ".vts";
 #endif
   Vector Vx_nodal, Vy_nodal;
   V.GetNodalValues(Vx_nodal, 1);
@@ -198,21 +202,22 @@ void output_seismic_properties(const Param& p, int ti,
 {
   string fname_rho_bin, fname_vp_bin, fname_vs_bin;
   string fname_rho_vts, fname_vp_vts, fname_vs_vts;
+  string extra = (string)p.extra + "_";
 
 #if defined(TWO_PHASE_FLOW)
-  fname_rho_bin = "2phase_" + d2s(p.n_cells) + "_t" + d2s(ti) + ".rho";
-  fname_vp_bin  = "2phase_" + d2s(p.n_cells) + "_t" + d2s(ti) + ".vp";
-  fname_vs_bin  = "2phase_" + d2s(p.n_cells) + "_t" + d2s(ti) + ".vs";
-  fname_rho_vts = "rho_" + d2s(p.spacedim) + "D_2phase_" + d2s(ti) + ".vts";
-  fname_vp_vts  = "vp_" + d2s(p.spacedim) + "D_2phase_"  + d2s(ti) + ".vts";
-  fname_vs_vts  = "vs_" + d2s(p.spacedim) + "D_2phase_"  + d2s(ti) + ".vts";
+  fname_rho_bin = extra + "2phase_" + d2s(p.n_cells) + "_t" + d2s(ti) + ".rho";
+  fname_vp_bin  = extra + "2phase_" + d2s(p.n_cells) + "_t" + d2s(ti) + ".vp";
+  fname_vs_bin  = extra + "2phase_" + d2s(p.n_cells) + "_t" + d2s(ti) + ".vs";
+  fname_rho_vts = "rho_" + extra + d2s(p.spacedim) + "D_2phase_" + d2s(ti) + ".vts";
+  fname_vp_vts  = "vp_" + extra + d2s(p.spacedim) + "D_2phase_"  + d2s(ti) + ".vts";
+  fname_vs_vts  = "vs_" + extra + d2s(p.spacedim) + "D_2phase_"  + d2s(ti) + ".vts";
 #else
-  fname_rho_bin = "1phase_" + d2s(p.n_cells) + "_t" + d2s(ti) + ".rho";
-  fname_vp_bin  = "1phase_" + d2s(p.n_cells) + "_t" + d2s(ti) + ".vp";
-  fname_vs_bin  = "1phase_" + d2s(p.n_cells) + "_t" + d2s(ti) + ".vs";
-  fname_rho_vts = "rho_" + d2s(p.spacedim) + "D_1phase_" + d2s(ti) + ".vts";
-  fname_vp_vts  = "vp_" + d2s(p.spacedim) + "D_1phase_"  + d2s(ti) + ".vts";
-  fname_vs_vts  = "vs_" + d2s(p.spacedim) + "D_1phase_"  + d2s(ti) + ".vts";
+  fname_rho_bin = extra + "1phase_" + d2s(p.n_cells) + "_t" + d2s(ti) + ".rho";
+  fname_vp_bin  = extra + "1phase_" + d2s(p.n_cells) + "_t" + d2s(ti) + ".vp";
+  fname_vs_bin  = extra + "1phase_" + d2s(p.n_cells) + "_t" + d2s(ti) + ".vs";
+  fname_rho_vts = "rho_" + extra + d2s(p.spacedim) + "D_1phase_" + d2s(ti) + ".vts";
+  fname_vp_vts  = "vp_" + extra + d2s(p.spacedim) + "D_1phase_"  + d2s(ti) + ".vts";
+  fname_vs_vts  = "vs_" + extra + d2s(p.spacedim) + "D_1phase_"  + d2s(ti) + ".vts";
 #endif
 
   write_binary(fname_rho_bin.c_str(), p.n_cells, rho_array.GetData());

@@ -43,12 +43,13 @@ Param::Param()
   , order_v(1), order_p(1), order_s(0)
   , t_final(200), dt(100)
   , vis_steps_global(1)
-  , vis_steps_local(200)
+  , vis_steps_local(-1) // negative means no output
   , seis_steps(1)
   , K(1.0)
   , phi(1.0)
   , K_file("no-file")
   , phi_file("no-file")
+  , extra("")
 { }
 
 Param::~Param()
@@ -75,12 +76,12 @@ void Param::init_arrays()
   if (K_file == "no-file")
     for (int i = 0; i < n_cells; ++i) K_array[i] = K;
   else
-    read_binary(K_file.c_str(), n_cells, K_array);
+    read_binary(K_file, n_cells, K_array);
 
   if (phi_file == "no-file")
     for (int i = 0; i < n_cells; ++i) phi_array[i] = phi;
   else
-    read_binary(phi_file.c_str(), n_cells, phi_array);
+    read_binary(phi_file, n_cells, phi_array);
 
   // sources and sinks
   for (int i = 0; i < n_cells; ++i)
@@ -110,6 +111,11 @@ void Param::add_options(OptionsParser &args)
   args.AddOption(&vis_steps_global, "-vsg", "--vis-steps-global", "Visualize every n-th timestep in the global time loop.");
   args.AddOption(&vis_steps_local, "-vsl", "--vis-steps-local", "Visualize every n-th timestep in the local time loops.");
   args.AddOption(&seis_steps, "-ss", "--seis-steps", "Compute seismic properties with Gassmann and output them every n-th timestep.");
+  args.AddOption(&K, "-K", "--K", "Consant permeability");
+  args.AddOption(&phi, "-phi", "--phi", "Consant porosity");
+  args.AddOption(&K_file, "-K-file", "--K-file", "File name for permeability");
+  args.AddOption(&phi_file, "-phi-file", "--phi-file", "File name for porosity");
+  args.AddOption(&extra, "-extra", "--extra", "Extra string to distinguish output files");
 
   darcy.add_options(args);
 }

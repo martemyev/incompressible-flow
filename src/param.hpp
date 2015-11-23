@@ -46,8 +46,10 @@ struct Param
   double K; // constant permeability
   double phi; // constant porosity
 
-  std::string K_file; // binary file for the permeability
-  std::string phi_file; // binary file for the porosity
+  const char *K_file; // binary file for the permeability
+  const char *phi_file; // binary file for the porosity
+
+  const char *extra; // extra string to distinguish the output files
 
   DarcySolverParam darcy;
 
