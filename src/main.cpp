@@ -51,9 +51,10 @@ int main(int argc, char **argv)
   if (p.spacedim == 2)
     mesh = new Mesh(p.nx, p.ny, Element::QUADRILATERAL, gen_edges, p.sx, p.sy);
   else if (p.spacedim == 3)
-    mesh = new Mesh(p.nx, p.ny, p.nz, Element::QUADRILATERAL, gen_edges, p.sx, p.sy, p.sz);
+    mesh = new Mesh(p.nx, p.ny, p.nz, Element::HEXAHEDRON, gen_edges, p.sx, p.sy, p.sz);
 
   const int dim = mesh->Dimension();
+  MFEM_VERIFY(dim == p.spacedim, "Dimensions mismatch");
 
   FiniteElementCollection *hdiv_coll = new RT_FECollection(p.order_v, dim); // for velocity
   FiniteElementCollection *l2_coll   = new L2_FECollection(p.order_p, dim); // for pressure
@@ -115,10 +116,10 @@ int main(int argc, char **argv)
   cout << "maxKsat = " << maxKsat << endl;
   cout << "rhomin  = " << rhomm[0] << endl;
   cout << "rhomax  = " << rhomm[1] << endl;
-  cout << "vpmin  = " << vpmm[0] << endl;
-  cout << "vpmax  = " << vpmm[1] << endl;
-  cout << "vsmin  = " << vsmm[0] << endl;
-  cout << "vsmax  = " << vsmm[1] << endl;
+  cout << "vpmin   = " << vpmm[0] << endl;
+  cout << "vpmax   = " << vpmm[1] << endl;
+  cout << "vsmin   = " << vsmm[0] << endl;
+  cout << "vsmax   = " << vsmm[1] << endl;
 
   output_seismic_properties(p, 0, rho_array, vp_array, vs_array);
 
