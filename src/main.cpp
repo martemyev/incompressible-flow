@@ -6,6 +6,7 @@
 #include "utilities.hpp"
 
 #include <cmath>
+#include <cfloat>
 
 using namespace std;
 using namespace mfem;
@@ -23,6 +24,12 @@ void output_seismic_properties(const Param& p, int ti, const Vector& rho_array,
 
 int main(int argc, char **argv)
 {
+  if (argc == 1)
+  {
+    cout << "\nTo see the available options, run\n" << argv[0] << " -h\n" << endl;
+    return 1;
+  }
+
   StopWatch total_time;
   total_time.Start();
 
@@ -81,13 +88,39 @@ int main(int argc, char **argv)
   Vector rho_array(p.n_cells);
   Vector vp_array(p.n_cells);
   Vector vs_array(p.n_cells);
-  rho_array = 2100.;
-  vp_array  = 2400.;
-  vs_array  = 1600.;
+
+  const double Kframe = K_frame(K_MINERAL_MATRIX, K_FLUID_COMPONENT,
+                                F_MINERAL_MATRIX, F_FLUID_COMPONENT);
+  cout << "Kframe = " << Kframe << endl;
+
+  double minKsat = DBL_MAX, maxKsat = DBL_MIN;
+  double rhomm[2], vpmm[2], vsmm[2];
+
+  // compute seismic properties for S_w = 0
+  for (int i = 0; i < p.n_cells; ++i)
+  {
+    const double Kfl   = K_func(VP_O, VS_O, RHO_O); // K_fluid = K_oil
+    const double Ksat  = K_sat(Kframe, K_MINERAL_MATRIX, Kfl, p.phi_array[i]);
+    rho_array[i] = rho_B(RHO_O, RHO_GRAIN, p.phi_array[i]); // rho_fluid = rho_oil
+    vp_array[i]  = vp_func(Ksat, G_MINERAL_MATRIX, rho_array[i]);
+    vs_array[i]  = vs_func(G_MINERAL_MATRIX, rho_array[i]);
+    minKsat = min(minKsat, Ksat);
+    maxKsat = max(maxKsat, Ksat);
+    get_minmax(rho_array, p.n_cells, rhomm[0], rhomm[1]);
+    get_minmax(vp_array, p.n_cells, vpmm[0], vpmm[1]);
+    get_minmax(vs_array, p.n_cells, vsmm[0], vsmm[1]);
+  }
+
+  cout << "minKsat = " << minKsat << endl;
+  cout << "maxKsat = " << maxKsat << endl;
+  cout << "rhomin  = " << rhomm[0] << endl;
+  cout << "rhomax  = " << rhomm[1] << endl;
+  cout << "vpmin  = " << vpmm[0] << endl;
+  cout << "vpmax  = " << vpmm[1] << endl;
+  cout << "vsmin  = " << vsmm[0] << endl;
+  cout << "vsmax  = " << vsmm[1] << endl;
+
   output_seismic_properties(p, 0, rho_array, vp_array, vs_array);
-  double K_saturated; // bulk modulus of the saturated media
-  double Kframe = K_frame(K_MINERAL_MATRIX, K_FLUID_COMPONENT,
-                          F_MINERAL_MATRIX, F_FLUID_COMPONENT);
 
   StopWatch global_time_loop;
   global_time_loop.Start();
@@ -101,14 +134,14 @@ int main(int argc, char **argv)
     PressureSolver(block_offsets, *mesh, p, V_space, P_space, saturation, x);
     SaturationSolver(p, S, velocity, ti, p.dt);
 
-    if (ti % p.vis_steps_global == 0) // visualize the solution
+    if (p.vis_steps_global > 0 && ti % p.vis_steps_global == 0)
     {
       output_scalar(p, P, tstr, "pressure");
       output_vector(p, V, tstr, "velocity");
       output_scalar(p, S, tstr, "saturation");
     }
 
-    if (ti % p.seis_steps == 0) // update seismic properties
+    if (p.seis_steps > 0 && ti % p.seis_steps == 0) // update seismic properties
     {
       Vector S_w(p.n_cells); // water saturation values in each cell
       if (p.spacedim == 2)
@@ -117,8 +150,18 @@ int main(int argc, char **argv)
         compute_in_cells(p.sx, p.sy, p.sz, p.nx, p.ny, p.nz, *mesh, S, S_w);
       else MFEM_ABORT("Not supported spacedim");
 
-      Gassmann(S, p, K_MINERAL_MATRIX, Kframe, RHO_GRAIN,
-               p.phi_array, rho_array, vp_array, vs_array, K_saturated);
+      Gassmann(S_w, p, K_MINERAL_MATRIX, Kframe, RHO_GRAIN,
+               p.phi_array, rho_array, vp_array, vs_array);
+    
+      get_minmax(rho_array, p.n_cells, rhomm[0], rhomm[1]);
+      get_minmax(vp_array, p.n_cells, vpmm[0], vpmm[1]);
+      get_minmax(vs_array, p.n_cells, vsmm[0], vsmm[1]);
+      cout << "rhomin  = " << rhomm[0] << endl;
+      cout << "rhomax  = " << rhomm[1] << endl;
+      cout << "vpmin  = " << vpmm[0] << endl;
+      cout << "vpmax  = " << vpmm[1] << endl;
+      cout << "vsmin  = " << vsmm[0] << endl;
+      cout << "vsmax  = " << vsmm[1] << endl;
 
       output_seismic_properties(p, ti, rho_array, vp_array, vs_array);
     }

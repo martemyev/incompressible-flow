@@ -159,6 +159,6 @@ double K_sat(double K_frame, double K_m, double K_fl, double phi);
 
 void Gassmann(const mfem::Vector& S, const Param& param, double K_m,
               double K_frame,double rho_gr, double *phi, double *rho,
-              double *vp, double *vs, double &Ksat);
+              double *vp, double *vs);
 
 #endif // UTILITIES_HPP

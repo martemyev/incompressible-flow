@@ -2,6 +2,7 @@
 #include "utilities.hpp"
 #include "param.hpp"
 
+#include <cfloat>
 #include <cmath>
 #include <fstream>
 
@@ -590,7 +591,7 @@ double K_sat(double K_frame, double K_m, double K_fl, double phi)
 {
   double numer = (1.0-K_frame/K_m)*(1.0-K_frame/K_m);
   double denom = phi/K_fl + (1.0-phi)/K_m - K_frame/K_m/K_m;
-  return numer/denom;
+  return K_frame + numer/denom;
 }
 
 double vp_func(double K, double G, double rho)
@@ -604,13 +605,15 @@ double vs_func(double G, double rho)
 }
 
 void Gassmann(const Vector& S, const Param& param, double K_m, double Kframe,
-              double rho_gr, double *phi, double *rho, double *vp, double *vs,
-              double &Ksat)
+              double rho_gr, double *phi, double *rho, double *vp, double *vs)
 {
+  MFEM_VERIFY(S.Size() == param.n_cells, "Sizes mismatch");
+
   const double K_w = K_func(VP_W, VS_W, RHO_W); // bulk modulus of water
   const double K_o = K_func(VP_O, VS_O, RHO_O); // bulk modulus of oil
 
-  double K, G, K_fl_mix, rho_fl_mix;
+  double K, G, K_fl_mix, rho_fl_mix, Ksat;
+  double minKsat = DBL_MAX, maxKsat = DBL_MIN;
 
   for (int i = 0; i < param.n_cells; ++i)
   {
@@ -621,11 +624,16 @@ void Gassmann(const Vector& S, const Param& param, double K_m, double Kframe,
     rho_fl_mix = rho_fl(S(i), RHO_W, RHO_O);
 
     Ksat = K_sat(Kframe, K_m, K_fl_mix, phi[i]);
+    minKsat = min(minKsat, Ksat);
+    maxKsat = max(maxKsat, Ksat);
 
     rho[i] = rho_B(rho_fl_mix, rho_gr, phi[i]);
     vp[i]  = vp_func(Ksat, G, rho[i]);
     vs[i]  = vs_func(G, rho[i]);
   }
+
+  cout << "minKsat = " << minKsat << endl;
+  cout << "maxKsat = " << maxKsat << endl;
 }
 
 
