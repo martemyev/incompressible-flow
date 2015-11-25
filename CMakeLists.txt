@@ -22,10 +22,41 @@ link_directories("${MFEM_DIR}/${MFEM_BUILD}")
 file(GLOB SRC_LIST "${PROJECT_SOURCE_DIR}/src/*.cpp")
 file(GLOB HDR_LIST "${PROJECT_SOURCE_DIR}/src/*.hpp")
 
+#-------------------------------------------------------------------------------
+# Config info
+#-------------------------------------------------------------------------------
+string(TIMESTAMP CONFIG_TIME "%Y-%m-%d at %H:%M:%S Z" UTC)
+if(WIN32)
+  set(USER_NAME $ENV{USERNAME})
+else()
+  set(USER_NAME $ENV{USER})
+endif()
+site_name(HOST_NAME)
+# Get the current working Git branch
+execute_process(
+  COMMAND git rev-parse --abbrev-ref HEAD
+  WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+  OUTPUT_VARIABLE GIT_BRANCH
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+# Get the latest abbreviated commit hash of the working branch
+execute_process(
+  COMMAND git log -1 --format=%h
+  WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+  OUTPUT_VARIABLE GIT_COMMIT_HASH
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+
+#-------------------------------------------------------------------------------
+# Config file
+#-------------------------------------------------------------------------------
 configure_file(
   "${PROJECT_SOURCE_DIR}/config.hpp.in"
   "${PROJECT_SOURCE_DIR}/src/config.hpp")
 
+#-------------------------------------------------------------------------------
+# Executable
+#-------------------------------------------------------------------------------
 add_executable(${PROJECT_NAME} ${SRC_LIST} ${HDR_LIST})
 target_link_libraries(${PROJECT_NAME} mfem rt)
 

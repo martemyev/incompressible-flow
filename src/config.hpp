@@ -10,6 +10,16 @@
   #define nullptr NULL
 #endif
 
+const std::string BUILD_TYPE = "RELEASE";
+const std::string MFEM_PATH = "/u/artemyev/projects/mfem/serial";
+const std::string CONFIG_TIME = "2015-11-25 at 19:16:18 Z";
+const std::string USER_NAME = "artemyev";
+const std::string HOST_NAME = "bloc608a";
+const std::string SYSTEM_NAME = "Linux-3.8.0-44-generic";
+const std::string SYSTEM_PROCESSOR = "x86_64";
+const std::string GIT_BRANCH = "master";
+const std::string GIT_COMMIT_HASH = "8eb4610";
+
 const std::string SEISMOGRAMS_DIR = "seismograms/";
 const std::string SNAPSHOTS_DIR   = "snapshots/";
 

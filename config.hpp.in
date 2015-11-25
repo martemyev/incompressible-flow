@@ -10,6 +10,16 @@
   #define nullptr NULL
 #endif
 
+const std::string BUILD_TYPE = "@BUILD_TYPE@";
+const std::string MFEM_PATH = "@MFEM_DIR@/@MFEM_BUILD@";
+const std::string CONFIG_TIME = "@CONFIG_TIME@";
+const std::string USER_NAME = "@USER_NAME@";
+const std::string HOST_NAME = "@HOST_NAME@";
+const std::string SYSTEM_NAME = "@CMAKE_SYSTEM@";
+const std::string SYSTEM_PROCESSOR = "@CMAKE_SYSTEM_PROCESSOR@";
+const std::string GIT_BRANCH = "@GIT_BRANCH@";
+const std::string GIT_COMMIT_HASH = "@GIT_COMMIT_HASH@";
+
 const std::string SEISMOGRAMS_DIR = "seismograms/";
 const std::string SNAPSHOTS_DIR   = "snapshots/";
 

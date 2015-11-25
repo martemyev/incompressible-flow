@@ -50,6 +50,7 @@ Param::Param()
   , K_file("no-file")
   , phi_file("no-file")
   , extra("")
+  , info(false)
 { }
 
 Param::~Param()
@@ -119,4 +120,23 @@ void Param::add_options(OptionsParser &args)
   args.AddOption(&extra, "-extra", "--extra", "Extra string to distinguish output files");
 
   darcy.add_options(args);
+
+  args.AddOption(&info, "-info", "--info", "-no-info", "--no-info",
+                 "Show info about the program and exit");
+}
+
+string Param::get_info() const
+{
+  const string str =
+      "\nBuild type                 : " + BUILD_TYPE +
+      "\nMFEM path                  : " + MFEM_PATH +
+      "\nConfig date and time (UTC) : " + CONFIG_TIME +
+      "\nUser name                  : " + USER_NAME +
+      "\nHost name                  : " + HOST_NAME +
+      "\nSystem name                : " + SYSTEM_NAME +
+      "\nSystem processor           : " + SYSTEM_PROCESSOR +
+      "\nGit branch                 : " + GIT_BRANCH +
+      "\nGit commit hash            : " + GIT_COMMIT_HASH +
+      "\n";
+  return str;
 }

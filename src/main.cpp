@@ -42,6 +42,11 @@ int main(int argc, char **argv)
      args.PrintUsage(cout);
      return 1;
   }
+  if (p.info)
+  {
+    cout << p.get_info() << endl;
+    return 1;
+  }
   args.PrintOptions(cout);
 
   p.init_arrays();

@@ -53,6 +53,9 @@ struct Param
 
   DarcySolverParam darcy;
 
+  bool info;
+  std::string get_info() const;
+
   Param();
   ~Param();
   void init_arrays();
