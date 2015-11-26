@@ -145,6 +145,17 @@ void compute_in_cells(double sx, double sy, double sz, int nx, int ny, int nz,
                       const mfem::Mesh& mesh, const mfem::GridFunction& U,
                       mfem::Vector& values);
 
+void output_scalar(const Param& p, const mfem::Vector& P,
+                   const std::string& tstr, const std::string& name);
+
+void output_vector(const Param& p, const mfem::GridFunction& V,
+                   const std::string& tstr, const std::string& name);
+
+void output_seismic_properties(const Param& p, int ti,
+                               const mfem::Vector& rho_array,
+                               const mfem::Vector& vp_array,
+                               const mfem::Vector& vs_array);
+
 double K_func(double vp, double vs, double rho);
 double G_func(double vs, double rho);
 double vp_func(double K, double G, double rho);

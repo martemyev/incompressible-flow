@@ -34,6 +34,7 @@ link_directories("${MFEM_DIR}/${MFEM_BUILD}")
 # Parallel mode
 #-------------------------------------------------------------------------------
 if(BUILD_TYPE STREQUAL PDEBUG OR BUILD_TYPE STREQUAL PRELEASE)
+  set(PARALLEL ON)
   # MPI
   find_package(MPI REQUIRED)
   include_directories(${MPI_CXX_INCLUDE_PATH})
@@ -91,7 +92,8 @@ configure_file(
 #-------------------------------------------------------------------------------
 # Config file
 #-------------------------------------------------------------------------------
-unset(MFEM_BUILD CACHE)
+#unset(MFEM_BUILD CACHE) # this results in recompiling the whole project every time
+#unset(PARALLEL CACHE)
 
 #-------------------------------------------------------------------------------
 # Executable

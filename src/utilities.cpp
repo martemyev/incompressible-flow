@@ -545,6 +545,105 @@ void compute_in_cells(double sx, double sy, double sz, int nx, int ny, int nz,
 
 
 
+void output_scalar(const Param& p, const Vector& P, const string& tstr,
+                   const string& name)
+{
+#if defined(TWO_PHASE_FLOW)
+  string fname = name + "_" + p.extra + "_" + d2s(p.spacedim) + "D_2phase_" +
+                 tstr + ".vts";
+#else
+  string fname = name + "_" + p.extra + "_" + d2s(p.spacedim) + "D_1phase_" +
+                 tstr + ".vts";
+#endif
+  Vector P_nodal;
+  P.GetNodalValues(P_nodal);
+  if (p.spacedim == 2)
+    write_vts_scalar(fname, name, p.sx, p.sy, p.nx, p.ny, P_nodal);
+  else if (p.spacedim == 3)
+    write_vts_scalar(fname, name, p.sx, p.sy, p.sz, p.nx, p.ny, p.nz, P_nodal);
+  else MFEM_ABORT("Not supported spacedim");
+}
+
+
+
+void output_vector(const Param& p, const GridFunction& V, const string& tstr,
+                   const string& name)
+{
+#if defined(TWO_PHASE_FLOW)
+  string fname = name + "_" + p.extra + "_" + d2s(p.spacedim) + "D_2phase_" +
+                 tstr + ".vts";
+#else
+  string fname = name + "_" + p.extra + "_" + d2s(p.spacedim) + "D_1phase_" +
+                 tstr + ".vts";
+#endif
+  Vector Vx_nodal, Vy_nodal;
+  V.GetNodalValues(Vx_nodal, 1);
+  V.GetNodalValues(Vy_nodal, 2);
+  if (p.spacedim == 2)
+    write_vts_vector(fname, name, p.sx, p.sy, p.nx, p.ny, Vx_nodal, Vy_nodal);
+  else if (p.spacedim == 3)
+  {
+    Vector Vz_nodal;
+    V.GetNodalValues(Vz_nodal, 3);
+    write_vts_vector(fname, name, p.sx, p.sy, p.sz, p.nx, p.ny, p.nz,
+                     Vx_nodal, Vy_nodal, Vz_nodal);
+  }
+  else MFEM_ABORT("Not supported spacedim");
+}
+
+
+
+void output_seismic_properties(const Param& p, int ti,
+                               const Vector& rho_array, const Vector& vp_array,
+                               const Vector& vs_array)
+{
+  string fname_rho_bin, fname_vp_bin, fname_vs_bin;
+  string fname_rho_vts, fname_vp_vts, fname_vs_vts;
+  string extra = (string)p.extra + "_";
+
+#if defined(TWO_PHASE_FLOW)
+  fname_rho_bin = extra + "2phase_" + d2s(p.n_cells) + "_t" + d2s(ti) + ".rho";
+  fname_vp_bin  = extra + "2phase_" + d2s(p.n_cells) + "_t" + d2s(ti) + ".vp";
+  fname_vs_bin  = extra + "2phase_" + d2s(p.n_cells) + "_t" + d2s(ti) + ".vs";
+  fname_rho_vts = "rho_" + extra + d2s(p.spacedim) + "D_2phase_" + d2s(ti) + ".vts";
+  fname_vp_vts  = "vp_" + extra + d2s(p.spacedim) + "D_2phase_"  + d2s(ti) + ".vts";
+  fname_vs_vts  = "vs_" + extra + d2s(p.spacedim) + "D_2phase_"  + d2s(ti) + ".vts";
+#else
+  fname_rho_bin = extra + "1phase_" + d2s(p.n_cells) + "_t" + d2s(ti) + ".rho";
+  fname_vp_bin  = extra + "1phase_" + d2s(p.n_cells) + "_t" + d2s(ti) + ".vp";
+  fname_vs_bin  = extra + "1phase_" + d2s(p.n_cells) + "_t" + d2s(ti) + ".vs";
+  fname_rho_vts = "rho_" + extra + d2s(p.spacedim) + "D_1phase_" + d2s(ti) + ".vts";
+  fname_vp_vts  = "vp_" + extra + d2s(p.spacedim) + "D_1phase_"  + d2s(ti) + ".vts";
+  fname_vs_vts  = "vs_" + extra + d2s(p.spacedim) + "D_1phase_"  + d2s(ti) + ".vts";
+#endif
+
+  write_binary(fname_rho_bin.c_str(), p.n_cells, rho_array.GetData());
+  write_binary(fname_vp_bin.c_str(),  p.n_cells, vp_array.GetData());
+  write_binary(fname_vs_bin.c_str(),  p.n_cells, vs_array.GetData());
+
+  if (p.spacedim == 2)
+  {
+    write_vts_scalar_cells(fname_rho_vts, "density", p.sx, p.sy,
+                           p.nx, p.ny, rho_array);
+    write_vts_scalar_cells(fname_vp_vts, "vp", p.sx, p.sy,
+                           p.nx, p.ny, vp_array);
+    write_vts_scalar_cells(fname_vs_vts, "vs", p.sx, p.sy,
+                           p.nx, p.ny, vs_array);
+  }
+  else if (p.spacedim == 3)
+  {
+    write_vts_scalar_cells(fname_rho_vts, "density", p.sx, p.sy, p.sz,
+                           p.nx, p.ny, p.nz, rho_array);
+    write_vts_scalar_cells(fname_vp_vts, "vp", p.sx, p.sy, p.sz,
+                           p.nx, p.ny, p.nz, vp_array);
+    write_vts_scalar_cells(fname_vs_vts, "vs", p.sx, p.sy, p.sz,
+                           p.nx, p.ny, p.nz, vs_array);
+  }
+  else MFEM_ABORT("Not supported spacedim");
+}
+
+
+
 double K_func(double vp, double vs, double rho)
 {
   return rho * (vp*vp - 4./3.*vs*vs);
