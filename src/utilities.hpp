@@ -145,7 +145,7 @@ void compute_in_cells(double sx, double sy, double sz, int nx, int ny, int nz,
                       const mfem::Mesh& mesh, const mfem::GridFunction& U,
                       mfem::Vector& values);
 
-void output_scalar(const Param& p, const mfem::Vector& P,
+void output_scalar(const Param& p, const mfem::GridFunction& P,
                    const std::string& tstr, const std::string& name);
 
 void output_vector(const Param& p, const mfem::GridFunction& V,

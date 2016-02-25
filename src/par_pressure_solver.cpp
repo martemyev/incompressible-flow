@@ -12,6 +12,7 @@ double q_func(Vector& x)
   return 0.0;
 }
 
+#if defined(MFEM_USE_MPI) // parallel mode
 void ParPressureSolver(const Array<int>& block_offsets,
                        const Array<int>& block_trueOffsets,
                        const ParMesh& mesh,
@@ -129,4 +130,5 @@ void ParPressureSolver(const Array<int>& block_offsets,
   delete B;
   delete M;
 }
+#endif // MFEM_USE_MPI
 

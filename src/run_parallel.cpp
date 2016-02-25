@@ -11,6 +11,7 @@
 using namespace std;
 using namespace mfem;
 
+#if defined(MFEM_USE_MPI) // parallel mode
 void run_parallel(int argc, char **argv)
 {
   int num_procs, myid;
@@ -222,4 +223,5 @@ void run_parallel(int argc, char **argv)
   if (myid == 0)
     cout << "TOTAL TIME: " << total_time.RealTime() << " sec" << endl;
 }
+#endif // MFEM_USE_MPI
 

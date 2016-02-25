@@ -545,7 +545,7 @@ void compute_in_cells(double sx, double sy, double sz, int nx, int ny, int nz,
 
 
 
-void output_scalar(const Param& p, const Vector& P, const string& tstr,
+void output_scalar(const Param& p, const GridFunction& P, const string& tstr,
                    const string& name)
 {
 #if defined(TWO_PHASE_FLOW)

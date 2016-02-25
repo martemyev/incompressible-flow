@@ -4,7 +4,10 @@
 
 using namespace std;
 
+#if defined(MFEM_USE_MPI) // parallel mode
 void run_parallel(int argc, char **argv);
+#endif // MFEM_USE_MPI
+
 void run_serial(int argc, char **argv);
 
 int main(int argc, char **argv)
