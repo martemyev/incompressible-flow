@@ -20,25 +20,31 @@ int main(int argc, char **argv)
   {
     run_parallel(argc, argv);
   }
-  catch (int i)
+  catch (int ierr)
   {
+//    MPI_Abort(MPI_COMM_WORLD, ierr);
     MPI_Finalize();
-    return i;
+    return ierr;
   }
   catch (const exception& e)
   {
+    int ierr = 1;
     cout << "ID " << myid << ": Exception\n" << e.what() << endl;
+//    MPI_Abort(MPI_COMM_WORLD, ierr);
     MPI_Finalize();
-    return 1;
+    return ierr;
   }
   catch (...)
   {
+    int ierr = 2;
     cout << "ID " << myid << ": Unknown exception" << endl;
+//    MPI_Abort(MPI_COMM_WORLD, ierr);
     MPI_Finalize();
-    return 1;
+    return ierr;
   }
   MPI_Finalize();
   return 0;
+
 #else // serial mode
   try
   {

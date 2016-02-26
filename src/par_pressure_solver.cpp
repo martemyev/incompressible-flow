@@ -19,6 +19,7 @@ void ParPressureSolver(const Array<int>& block_offsets,
                        const Param& param,
                        ParFiniteElementSpace& V_space,
                        ParFiniteElementSpace& P_space,
+                       GridFunctionCoefficient &saturation,
                        BlockVector& x, BlockVector& trueX)
 {
   StopWatch timer;
@@ -27,11 +28,12 @@ void ParPressureSolver(const Array<int>& block_offsets,
   int myid;
   MPI_Comm_rank(MPI_COMM_WORLD, &myid);
 
-//  const bool own_array = false;
+  const bool own_array = false;
 //  CWCoefficient K(saturation, MU_W, MU_O, param.K_array, param.n_cells, own_array);
-//  CWConstCoefficient Q(param.Q_array, param.n_cells, own_array);
-  ConstantCoefficient K(1.0);
-  FunctionCoefficient Q(q_func);
+  CWConstCoefficient K(param.K_array, param.n_cells, own_array);
+  CWConstCoefficient Q(param.Q_array, param.n_cells, own_array);
+//  ConstantCoefficient K(1.0);
+//  FunctionCoefficient Q(q_func);
 
   BlockVector rhs(block_offsets), trueRhs(block_trueOffsets);
 

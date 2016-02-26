@@ -7,6 +7,7 @@
 
 #include <cmath>
 #include <cfloat>
+#include <fstream>
 
 using namespace std;
 using namespace mfem;
@@ -34,42 +35,50 @@ void run_parallel(int argc, char **argv)
   args.Parse();
   if (!args.Good())
   {
-    if (myid == 0) args.PrintUsage(cout);
+    if (myid == 0)
+      args.PrintUsage(cout);
     throw 1;
   }
   if (p.info)
   {
-    if (myid == 0) cout << p.get_info() << endl;
+    if (myid == 0)
+      cout << p.get_info() << endl;
     throw 1;
   }
-  if (myid == 0) args.PrintOptions(cout);
+  if (myid == 0)
+    args.PrintOptions(cout);
 
   p.init_arrays();
 
-  const bool gen_edges = true;
-  Mesh *mesh;
-  if (p.spacedim == 2)
-    mesh = new Mesh(p.nx, p.ny, Element::QUADRILATERAL, gen_edges, p.sx, p.sy);
-  else if (p.spacedim == 3)
-    mesh = new Mesh(p.nx, p.ny, p.nz, Element::HEXAHEDRON, gen_edges, p.sx, p.sy, p.sz);
+  ParMesh *pmesh = nullptr;
 
-  const int dim = mesh->Dimension();
-  MFEM_VERIFY(dim == p.spacedim, "Dimensions mismatch");
+  {
+    // Create a serial mesh, and initialize the parallel one
+    const bool gen_edges = true;
+    Mesh *mesh;
+    if (p.spacedim == 2)
+      mesh = new Mesh(p.nx, p.ny, Element::QUADRILATERAL, gen_edges, p.sx, p.sy);
+    else if (p.spacedim == 3)
+      mesh = new Mesh(p.nx, p.ny, p.nz, Element::HEXAHEDRON, gen_edges, p.sx, p.sy, p.sz);
 
-  ParMesh *pmesh = new ParMesh(MPI_COMM_WORLD, *mesh);
-  delete mesh;
+    const int dim = mesh->Dimension();
+    MFEM_VERIFY(dim == p.spacedim, "Dimensions mismatch");
 
-  FiniteElementCollection *hdiv_coll = new RT_FECollection(p.order_v, dim); // for velocity
-  FiniteElementCollection *l2_coll   = new L2_FECollection(p.order_p, dim); // for pressure
-  DG_FECollection         *dg_coll   = new DG_FECollection(p.order_s, dim); // for saturation
+    pmesh = new ParMesh(MPI_COMM_WORLD, *mesh);
+    delete mesh;
+  }
+
+  FiniteElementCollection *hdiv_coll = new RT_FECollection(p.order_v, p.spacedim); // for velocity
+  FiniteElementCollection *l2_coll   = new L2_FECollection(p.order_p, p.spacedim); // for pressure
+  DG_FECollection         *dg_coll   = new DG_FECollection(p.order_s, p.spacedim); // for saturation
 
   ParFiniteElementSpace V_space(pmesh, hdiv_coll);
   ParFiniteElementSpace P_space(pmesh, l2_coll);
   ParFiniteElementSpace S_space(pmesh, dg_coll);
 
-  int dimV = V_space.GlobalTrueVSize();
-  int dimP = P_space.GlobalTrueVSize();
-  int dimS = S_space.GlobalTrueVSize();
+  HYPRE_Int dimV = V_space.GlobalTrueVSize();
+  HYPRE_Int dimP = P_space.GlobalTrueVSize();
+  HYPRE_Int dimS = S_space.GlobalTrueVSize();
 
   if (myid == 0)
   {
@@ -98,9 +107,9 @@ void run_parallel(int argc, char **argv)
   V.Update(&V_space, x.GetBlock(0), 0);
   P.Update(&P_space, x.GetBlock(1), 0);
 
-//  GridFunction S(&S_space); // solution of the saturation problem
-//  S = 0.0;
-//  GridFunctionCoefficient saturation(&S);
+  ParGridFunction S(&S_space); // solution of the saturation problem
+  S = 0.0;
+  GridFunctionCoefficient saturation(&S);
 //  VectorGridFunctionCoefficient velocity(&V);
 
   Vector rho_array(p.n_cells);
@@ -109,7 +118,8 @@ void run_parallel(int argc, char **argv)
 
   const double Kframe = K_frame(K_MINERAL_MATRIX, K_FLUID_COMPONENT,
                                 F_MINERAL_MATRIX, F_FLUID_COMPONENT);
-  if (myid == 0) cout << "Kframe = " << Kframe << endl;
+  if (myid == 0)
+    cout << "Kframe = " << Kframe << endl;
 
   double minKsat = DBL_MAX, maxKsat = DBL_MIN;
   double rhomm[2], vpmm[2], vsmm[2];
@@ -147,30 +157,49 @@ void run_parallel(int argc, char **argv)
   StopWatch global_time_loop;
   global_time_loop.Start();
 
-//  int nt = ceil(p.t_final / p.dt);
-//  if (myid == 0) cout << "Number of global time steps: " << nt << endl;
-//  for (int ti = 1; ti <= nt; ++ti)
-//  {
-//    const string tstr = d2s(ti, 0, 0, 0, 6);
+  int nt = ceil(p.t_final / p.dt);
+  if (myid == 0)
+    cout << "Number of global time steps: " << nt << endl;
 
+  VisItDataCollection visit("inc-flow-parallel", pmesh);
+  visit.RegisterField("pressure", &P);
+
+
+  for (int ti = 1; ti <= nt; ++ti)
+  {
     ParPressureSolver(block_offsets, block_trueOffsets, *pmesh, p,
-                      V_space, P_space, x, trueX);
-//    SaturationSolver(p, S, velocity, ti, p.dt);
+                      V_space, P_space, saturation, x, trueX);
+//    ParSaturationSolver(p, S, velocity, ti, p.dt);
 
-//    if (p.vis_steps_global > 0 && ti % p.vis_steps_global == 0)
-//    {
-//      output_scalar(p, P, tstr, "pressure");
-    V.Distribute(&trueX.GetBlock(0));
-    P.Distribute(&trueX.GetBlock(1));
-    if (myid == 0)
+    if (p.vis_steps_global > 0 && ti % p.vis_steps_global == 0)
     {
-      Vector trueP;
-      P.GetTrueDofs(trueP);
-      output_scalar(p, trueP, "abc", "pressure");
+      V.Distribute(&trueX.GetBlock(0));
+      P.Distribute(&trueX.GetBlock(1));
+
+//      const std::string time_str =  d2s(ti, 0, 0, 0, 6);
+//      const std::string rank_str =  d2s(myid, 0, 0, 0, 6);
+//      std::string mesh_name = "output/mesh_t" + time_str + "." + rank_str;
+//      std::string V_name = "output/solV_t" + time_str + "." + rank_str;
+//      std::string P_name = "output/solP_t" + time_str + "." + rank_str;
+
+//      ofstream mesh_ofs(mesh_name.c_str());
+//      mesh_ofs.precision(8);
+//      pmesh->Print(mesh_ofs);
+
+//      ofstream V_ofs(V_name.c_str());
+//      V_ofs.precision(8);
+//      V.Save(V_ofs);
+
+//      ofstream P_ofs(P_name.c_str());
+//      P_ofs.precision(8);
+//      P.Save(P_ofs);
+      visit.SetCycle(ti);
+      visit.SetTime(ti*p.dt);
+      visit.Save();
     }
-//      output_vector(p, V, tstr, "velocity");
-//      output_scalar(p, S, tstr, "saturation");
-//    }
+
+
+
 
 //    if (p.seis_steps > 0 && ti % p.seis_steps == 0) // update seismic properties
 //    {
@@ -208,11 +237,13 @@ void run_parallel(int argc, char **argv)
 //        cout << "Saturation went up to more than 1.1. The process stops." << endl;
 //      break;
 //    }
-//  }
+  }
 
   if (myid == 0)
+  {
     cout << "Time of the global time loop: " << global_time_loop.RealTime()
          << " sec" << endl;
+  }
 
   delete hdiv_coll;
   delete l2_coll;

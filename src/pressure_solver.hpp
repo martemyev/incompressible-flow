@@ -11,7 +11,7 @@ void PressureSolver(const mfem::Array<int> &block_offsets,
                     const Param &param,
                     mfem::FiniteElementSpace &V_space,
                     mfem::FiniteElementSpace &P_space,
-                    mfem::GridFunctionCoefficient &S,
+                    mfem::GridFunctionCoefficient &saturation,
                     mfem::BlockVector &x);
 
 #if defined(MFEM_USE_MPI) // parallel mode
@@ -21,6 +21,7 @@ void ParPressureSolver(const mfem::Array<int>& block_offsets,
                        const Param& param,
                        mfem::ParFiniteElementSpace& V_space,
                        mfem::ParFiniteElementSpace& P_space,
+                       mfem::GridFunctionCoefficient &saturation,
                        mfem::BlockVector& x, mfem::BlockVector& trueX);
 #endif // MFEM_USE_MPI
 
