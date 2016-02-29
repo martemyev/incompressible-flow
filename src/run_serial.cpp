@@ -121,6 +121,7 @@ void run_serial(int argc, char **argv)
 
   VisItDataCollection visit("inc-flow-serial", mesh);
   visit.RegisterField("pressure", &P);
+  visit.RegisterField("saturation", &S);
 
   StopWatch global_time_loop;
   global_time_loop.Start();

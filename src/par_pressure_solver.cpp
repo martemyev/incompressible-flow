@@ -29,8 +29,7 @@ void ParPressureSolver(const Array<int>& block_offsets,
   MPI_Comm_rank(MPI_COMM_WORLD, &myid);
 
   const bool own_array = false;
-//  CWCoefficient K(saturation, MU_W, MU_O, param.K_array, param.n_cells, own_array);
-  CWConstCoefficient K(param.K_array, param.n_cells, own_array);
+  CWCoefficient K(saturation, MU_W, MU_O, param.K_array, param.n_cells, own_array);
   CWConstCoefficient Q(param.Q_array, param.n_cells, own_array);
 //  ConstantCoefficient K(1.0);
 //  FunctionCoefficient Q(q_func);
@@ -47,8 +46,8 @@ void ParPressureSolver(const Array<int>& block_offsets,
   gform.Update(&P_space, rhs.GetBlock(1), 0);
   gform.AddDomainIntegrator(new DomainLFIntegrator(Q));
   gform.Assemble();
-  gform.ParallelAssemble(trueRhs.GetBlock(1));
   gform *= -1.0;
+  gform.ParallelAssemble(trueRhs.GetBlock(1));
 
   ParBilinearForm mVarf(&V_space);
   ParMixedBilinearForm bVarf(&V_space, &P_space);

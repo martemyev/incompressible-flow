@@ -112,7 +112,7 @@ void run_parallel(int argc, char **argv)
   ParGridFunction S(&S_space); // solution of the saturation problem
   S = 0.0;
   GridFunctionCoefficient saturation(&S);
-//  VectorGridFunctionCoefficient velocity(&V);
+  VectorGridFunctionCoefficient velocity(&V);
 
   Vector rho_array(p.n_cells);
   Vector vp_array(p.n_cells);
@@ -156,6 +156,14 @@ void run_parallel(int argc, char **argv)
   if (myid == 0)
     output_seismic_properties(p, 0, rho_array, vp_array, vs_array);
 
+  VisItDataCollection visit("inc-flow-parallel", pmesh);
+  visit.RegisterField("pressure", &P);
+  visit.RegisterField("velocity", &V);
+  visit.RegisterField("saturation", &S);
+
+  VisItDataCollection visit_local("inc-flow-parallel-local", pmesh);
+  visit_local.RegisterField("saturation", &S);
+
   StopWatch global_time_loop;
   global_time_loop.Start();
 
@@ -163,15 +171,13 @@ void run_parallel(int argc, char **argv)
   if (myid == 0)
     cout << "Number of global time steps: " << nt << endl;
 
-  VisItDataCollection visit("inc-flow-parallel", pmesh);
-  visit.RegisterField("pressure", &P);
-
-
   for (int ti = 1; ti <= nt; ++ti)
   {
     ParPressureSolver(block_offsets, block_trueOffsets, *pmesh, p,
                       V_space, P_space, saturation, x, trueX);
-//    ParSaturationSolver(p, S, velocity, ti, p.dt);
+
+    V.Distribute(&trueX.GetBlock(0));
+    ParSaturationSolver(p, S, velocity, ti, p.dt, visit_local);
 
     if (p.vis_steps_global > 0 && ti % p.vis_steps_global == 0)
     {

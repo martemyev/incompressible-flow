@@ -92,8 +92,8 @@ void Param::init_arrays()
   }
 
   Q_array[0]         =  1.0; // injection well
-  Q_array[nx-1]      = -1.0; // production well
-//  R_array[0]         =  1.0; // source of saturation
+  Q_array[n_cells-1] = -1.0; // production well
+  R_array[0]         =  1.0; // source of saturation
 }
 
 void Param::add_options(OptionsParser &args)

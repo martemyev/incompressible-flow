@@ -7,7 +7,7 @@
 
 #include <iostream>
 
-#define TWO_PHASE_FLOW
+//#define TWO_PHASE_FLOW
 
 double Krw(double S);
 double Kro(double S);
