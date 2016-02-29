@@ -77,11 +77,12 @@ public:
   virtual ~CWConstCoefficient() { if (own_array) delete[] val_array; }
 
   virtual double Eval(mfem::ElementTransformation &T,
-                      const mfem::IntegrationPoint &ip)
+                      const mfem::IntegrationPoint&)
   {
-    MFEM_ASSERT(T.ElementNo >= 0 && T.ElementNo < n_cells, "Element number is "
-                "out of range: " + d2s(T.ElementNo));
-    return val_array[T.ElementNo];
+    const int index = T.Attribute - 1; // use attribute as a cell number
+    MFEM_ASSERT(index >= 0 && index < n_cells, "Element number (attribute) is "
+                "out of range: " + d2s(index));
+    return val_array[index];
   }
 
 protected:
@@ -114,11 +115,12 @@ public:
   virtual double Eval(mfem::ElementTransformation &T,
                       const mfem::IntegrationPoint &ip)
   {
-    MFEM_ASSERT(T.ElementNo >= 0 && T.ElementNo < n_cells, "Element number is "
-                "out of range: " + d2s(T.ElementNo));
+    const int index = T.Attribute - 1; // use attribute as a cell number
+    MFEM_ASSERT(index >= 0 && index < n_cells, "Element number (attribute) is "
+                "out of range: " + d2s(index));
     const double S = func.Eval(T, ip);
     const double val = Krw(S) / mu_w + Kro(S) / mu_o;
-    return 1./(val*val_array[T.ElementNo]);
+    return 1./(val*val_array[index]);
   }
 
 protected:

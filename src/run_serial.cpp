@@ -40,12 +40,14 @@ void run_serial(int argc, char **argv)
 
   p.init_arrays();
 
-  const bool gen_edges = true;
+  const int gen_edges = 1;
   Mesh *mesh;
   if (p.spacedim == 2)
     mesh = new Mesh(p.nx, p.ny, Element::QUADRILATERAL, gen_edges, p.sx, p.sy);
   else if (p.spacedim == 3)
     mesh = new Mesh(p.nx, p.ny, p.nz, Element::HEXAHEDRON, gen_edges, p.sx, p.sy, p.sz);
+  for (int el = 0; el < mesh->GetNE(); ++el)
+    mesh->GetElement(el)->SetAttribute(el+1);
 
   const int dim = mesh->Dimension();
   MFEM_VERIFY(dim == p.spacedim, "Dimensions mismatch");
