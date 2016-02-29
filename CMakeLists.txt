@@ -12,40 +12,37 @@ message(STATUS "BUILD_TYPE ${BUILD_TYPE}")
 #-------------------------------------------------------------------------------
 # MFEM
 #-------------------------------------------------------------------------------
-if(NOT MFEM_DIR)
-  set(MFEM_DIR "$ENV{HOME}/projects/mfem" CACHE PATH "Path to the MFEM root directory")
-endif()
+find_path(MFEM_DIR include/mfem.hpp HINTS ENV MFEM_DIR PATHS $ENV{HOME}/projects/mfem DOC "MFEM directory")
+set(MFEM_INCLUDE_DIR ${MFEM_DIR}/include)
+
+unset(MFEM_CONFIG CACHE)
+find_path(MFEM_CONFIG config.hpp HINTS ENV MFEM_DIR PATHS ${MFEM_INCLUDE_DIR}/config DOC "MFEM config directory")
+
+list(APPEND MFEM_INCLUDE_DIR ${MFEM_CONFIG})
+include_directories(${MFEM_INCLUDE_DIR})
+
 message(STATUS "MFEM_DIR ${MFEM_DIR}")
-if(NOT MFEM_BUILD)
-  if(BUILD_TYPE STREQUAL DEBUG)
-    set(MFEM_BUILD "serialdebug" CACHE STRING
-        "Name of MFEM build (it's a subdirectory with config file and library")
-  elseif(BUILD_TYPE STREQUAL RELEASE)
-    set(MFEM_BUILD "serial")
-  elseif(BUILD_TYPE STREQUAL PDEBUG)
-    set(MFEM_BUILD "paralleldebug")
-  elseif(BUILD_TYPE STREQUAL PRELEASE)
-    set(MFEM_BUILD "parallel")
-  else()
-    message(FATAL_ERROR "Unknown BUILD_TYPE")
-  endif()
+message(STATUS "MFEM_CONFIG ${MFEM_CONFIG}")
+message(STATUS "MFEM_INCLUDE_DIR ${MFEM_INCLUDE_DIR}")
+
+unset(MFEM_LIBRARY CACHE)
+find_library(MFEM_LIBRARY mfem HINTS ${MFEM_DIR} PATHS ${MFEM_DIR}/lib PATH_SUFFIXES lib DOC "MFEM library")
+if(NOT MFEM_LIBRARY)
+  message(FATAL_ERROR "MFEM library was NOT found")
+else()
+  message(STATUS "MFEM lib ${MFEM_LIBRARY}")
 endif()
-message(STATUS "MFEM_BUILD ${MFEM_BUILD}")
-include_directories("${MFEM_DIR}")               # for "mfem.hpp"
-include_directories("${MFEM_DIR}/${MFEM_BUILD}") # for "config.hpp"
-link_directories("${MFEM_DIR}/${MFEM_BUILD}")
 
 #-------------------------------------------------------------------------------
 # Parallel mode
 #-------------------------------------------------------------------------------
 if(BUILD_TYPE STREQUAL PDEBUG OR BUILD_TYPE STREQUAL PRELEASE)
-  set(PARALLEL ON)
   # MPI
   find_package(MPI REQUIRED)
   include_directories(${MPI_CXX_INCLUDE_PATH})
   set(CMAKE_CXX_COMPILER ${MPI_CXX_COMPILER})
   # Hypre
-  find_path(HYPRE_DIR include/HYPRE.h HINTS ENV HYPRE_DIR PATHS "$ENV{HOME}/hypre" "${MFEM_DIR}/../hypre-2.10.0b/src/hypre" DOC "Hypre directory")
+  find_path(HYPRE_DIR include/HYPRE.h HINTS ENV HYPRE_DIR PATHS "$ENV{HOME}/hypre" DOC "Hypre directory")
   if(EXISTS ${HYPRE_DIR}/include/HYPRE.h)
     set(HYPRE_FOUND YES)
     message(STATUS "Hypre found ${HYPRE_DIR}")
@@ -60,7 +57,7 @@ if(BUILD_TYPE STREQUAL PDEBUG OR BUILD_TYPE STREQUAL PRELEASE)
     message(FATAL_ERROR "Hypre is NOT found")
   endif()
   # Metis
-  find_path(METIS_DIR include/metis.h HINTS ENV METIS_DIR PATHS "$ENV{HOME}/metis" "${MFEM_DIR}/../metis" DOC "Metis directory")
+  find_path(METIS_DIR include/metis.h HINTS ENV METIS_DIR PATHS "$ENV{HOME}/metis" DOC "Metis directory")
   if(EXISTS ${METIS_DIR}/include/metis.h)
     set(METIS_FOUND YES)
     message(STATUS "Metis found ${METIS_DIR}")
@@ -127,7 +124,7 @@ configure_file(
 # Executable
 #-------------------------------------------------------------------------------
 add_executable(${PROJECT_NAME} ${SRC_LIST} ${HDR_LIST})
-target_link_libraries(${PROJECT_NAME} mfem rt)
+target_link_libraries(${PROJECT_NAME} ${MFEM_LIBRARY} rt)
 if(BUILD_TYPE STREQUAL PDEBUG OR BUILD_TYPE STREQUAL PRELEASE)
   target_link_libraries(${PROJECT_NAME} ${MPI_CXX_LIBRARIES} ${HYPRE_LIBRARY} ${METIS_LIBRARY})
 endif()
