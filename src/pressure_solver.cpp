@@ -15,9 +15,12 @@ void PressureSolver(const Array<int> &block_offsets,
   StopWatch timer;
   timer.Start();
 
+  const int n_cells = param.get_n_cells();
+
   const bool own_array = false;
-  CWCoefficient K(saturation, MU_W, MU_O, param.K_array, param.n_cells, own_array);
-  CWConstCoefficient Q(param.Q_array, param.n_cells, own_array);
+  CWCoefficient K(saturation, MU_W, MU_O, param.K_array, n_cells,
+                  param.two_phase_flow, own_array);
+  CWConstCoefficient Q(param.Q_array, n_cells, own_array);
 
   BlockVector rhs(block_offsets);
 

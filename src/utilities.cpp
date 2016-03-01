@@ -548,13 +548,10 @@ void compute_in_cells(double sx, double sy, double sz, int nx, int ny, int nz,
 void output_scalar(const Param& p, const GridFunction& P, const string& tstr,
                    const string& name)
 {
-#if defined(TWO_PHASE_FLOW)
-  string fname = name + "_" + p.extra + "_" + d2s(p.spacedim) + "D_2phase_" +
-                 tstr + ".vts";
-#else
-  string fname = name + "_" + p.extra + "_" + d2s(p.spacedim) + "D_1phase_" +
-                 tstr + ".vts";
-#endif
+  string phase = (p.two_phase_flow ? "2phase" : "1phase");
+  string fname = name + "_" + p.extra + "_" + d2s(p.spacedim) + "D_" + phase +
+                 "_" + tstr + ".vts";
+
   Vector P_nodal;
   P.GetNodalValues(P_nodal);
   if (p.spacedim == 2)
@@ -569,13 +566,10 @@ void output_scalar(const Param& p, const GridFunction& P, const string& tstr,
 void output_vector(const Param& p, const GridFunction& V, const string& tstr,
                    const string& name)
 {
-#if defined(TWO_PHASE_FLOW)
-  string fname = name + "_" + p.extra + "_" + d2s(p.spacedim) + "D_2phase_" +
-                 tstr + ".vts";
-#else
-  string fname = name + "_" + p.extra + "_" + d2s(p.spacedim) + "D_1phase_" +
-                 tstr + ".vts";
-#endif
+  string phase = (p.two_phase_flow ? "2phase" : "1phase");
+  string fname = name + "_" + p.extra + "_" + d2s(p.spacedim) + "D_" + phase +
+                 "_" + tstr + ".vts";
+
   Vector Vx_nodal, Vy_nodal;
   V.GetNodalValues(Vx_nodal, 1);
   V.GetNodalValues(Vy_nodal, 2);
@@ -601,25 +595,19 @@ void output_seismic_properties(const Param& p, int ti,
   string fname_rho_vts, fname_vp_vts, fname_vs_vts;
   string extra = (string)p.extra + "_";
 
-#if defined(TWO_PHASE_FLOW)
-  fname_rho_bin = extra + "2phase_" + d2s(p.n_cells) + "_t" + d2s(ti) + ".rho";
-  fname_vp_bin  = extra + "2phase_" + d2s(p.n_cells) + "_t" + d2s(ti) + ".vp";
-  fname_vs_bin  = extra + "2phase_" + d2s(p.n_cells) + "_t" + d2s(ti) + ".vs";
-  fname_rho_vts = "rho_" + extra + d2s(p.spacedim) + "D_2phase_" + d2s(ti) + ".vts";
-  fname_vp_vts  = "vp_" + extra + d2s(p.spacedim) + "D_2phase_"  + d2s(ti) + ".vts";
-  fname_vs_vts  = "vs_" + extra + d2s(p.spacedim) + "D_2phase_"  + d2s(ti) + ".vts";
-#else
-  fname_rho_bin = extra + "1phase_" + d2s(p.n_cells) + "_t" + d2s(ti) + ".rho";
-  fname_vp_bin  = extra + "1phase_" + d2s(p.n_cells) + "_t" + d2s(ti) + ".vp";
-  fname_vs_bin  = extra + "1phase_" + d2s(p.n_cells) + "_t" + d2s(ti) + ".vs";
-  fname_rho_vts = "rho_" + extra + d2s(p.spacedim) + "D_1phase_" + d2s(ti) + ".vts";
-  fname_vp_vts  = "vp_" + extra + d2s(p.spacedim) + "D_1phase_"  + d2s(ti) + ".vts";
-  fname_vs_vts  = "vs_" + extra + d2s(p.spacedim) + "D_1phase_"  + d2s(ti) + ".vts";
-#endif
+  const int n_cells = p.get_n_cells();
 
-  write_binary(fname_rho_bin.c_str(), p.n_cells, rho_array.GetData());
-  write_binary(fname_vp_bin.c_str(),  p.n_cells, vp_array.GetData());
-  write_binary(fname_vs_bin.c_str(),  p.n_cells, vs_array.GetData());
+  string phase = (p.two_phase_flow ? "2phase" : "1phase");
+  fname_rho_bin = extra + "1phase_" + d2s(n_cells) + "_t" + d2s(ti) + ".rho";
+  fname_vp_bin  = extra + "1phase_" + d2s(n_cells) + "_t" + d2s(ti) + ".vp";
+  fname_vs_bin  = extra + "1phase_" + d2s(n_cells) + "_t" + d2s(ti) + ".vs";
+  fname_rho_vts = "rho_" + extra + d2s(p.spacedim) + "D_" + phase + "_" + d2s(ti) + ".vts";
+  fname_vp_vts  = "vp_" + extra + d2s(p.spacedim) + "D_" + phase + "_"  + d2s(ti) + ".vts";
+  fname_vs_vts  = "vs_" + extra + d2s(p.spacedim) + "D_" + phase + "_"  + d2s(ti) + ".vts";
+
+  write_binary(fname_rho_bin.c_str(), n_cells, rho_array.GetData());
+  write_binary(fname_vp_bin.c_str(),  n_cells, vp_array.GetData());
+  write_binary(fname_vs_bin.c_str(),  n_cells, vs_array.GetData());
 
   if (p.spacedim == 2)
   {
@@ -706,7 +694,8 @@ double vs_func(double G, double rho)
 void Gassmann(const Vector& S, const Param& param, double K_m, double Kframe,
               double rho_gr, double *phi, double *rho, double *vp, double *vs)
 {
-  MFEM_VERIFY(S.Size() == param.n_cells, "Sizes mismatch");
+  const int n_cells = param.get_n_cells();
+  MFEM_VERIFY(S.Size() == n_cells, "Sizes mismatch");
 
   const double K_w = K_func(VP_W, VS_W, RHO_W); // bulk modulus of water
   const double K_o = K_func(VP_O, VS_O, RHO_O); // bulk modulus of oil
@@ -714,7 +703,7 @@ void Gassmann(const Vector& S, const Param& param, double K_m, double Kframe,
   double K, G, K_fl_mix, rho_fl_mix, Ksat;
   double minKsat = DBL_MAX, maxKsat = DBL_MIN;
 
-  for (int i = 0; i < param.n_cells; ++i)
+  for (int i = 0; i < n_cells; ++i)
   {
     K = K_func(vp[i], vs[i], rho[i]);
     G = G_func(vs[i], rho[i]);

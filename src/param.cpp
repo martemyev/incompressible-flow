@@ -3,13 +3,22 @@
 using namespace std;
 using namespace mfem;
 
-#if defined(TWO_PHASE_FLOW)
-double Krw(double S) { return S*S; }
-double Kro(double S) { return (1.0-S)*(1.0-S); }
-#else
-double Krw(double S) { return S; }
-double Kro(double S) { return (1.0-S); }
-#endif // TWO_PHASE_FLOW
+
+double Krw(double S, bool two_phase_flow)
+{
+  if (two_phase_flow)
+    return S*S;
+  else
+    return S;
+}
+
+double Kro(double S, bool two_phase_flow)
+{
+  if (two_phase_flow)
+    return (1.0-S)*(1.0-S);
+  else
+    return (1.0-S);
+}
 
 
 
@@ -34,8 +43,8 @@ void DarcySolverParam::add_options(OptionsParser &args)
 
 Param::Param()
   : spacedim(2)
-  , nx(0), ny(0), nz(0), n_cells(0)
-  , sx(0.0), sy(0.0), sz(0.0), V(0.0)
+  , nx(100), ny(100), nz(100)
+  , sx(100.), sy(100.), sz(100.)
   , K_array(nullptr)
   , Q_array(nullptr)
   , phi_array(nullptr)
@@ -49,7 +58,9 @@ Param::Param()
   , phi(1.0)            // porosity
   , K_file("no-file")
   , phi_file("no-file")
+  , outdir("output")
   , extra("")
+  , two_phase_flow(false)
   , info(false)
 { }
 
@@ -63,11 +74,7 @@ Param::~Param()
 
 void Param::init_arrays()
 {
-  n_cells = nx*ny;
-  if (spacedim == 3) n_cells *= nz;
-  double V_domain = sx*sy;
-  if (spacedim == 3) V_domain *= sz;
-  V = V_domain / n_cells;
+  const int n_cells = get_n_cells();
 
   K_array   = new double[n_cells];
   Q_array   = new double[n_cells];
@@ -108,16 +115,20 @@ void Param::add_options(OptionsParser &args)
   args.AddOption(&order_v, "-ov", "--orderv", "Order (degree) of the finite elements for velocity");
   args.AddOption(&order_p, "-op", "--orderp", "Order (degree) of the finite elements for pressure");
   args.AddOption(&order_s, "-os", "--orders", "Order (degree) of the finite elements for saturation");
-  args.AddOption(&t_final, "-tf", "--t-final", "Final time; start time is 0.");
-  args.AddOption(&dt, "-dt", "--time-step", "Time step.");
-  args.AddOption(&vis_steps_global, "-vsg", "--vis-steps-global", "Visualize every n-th timestep in the global time loop (<=0 no output)");
-  args.AddOption(&vis_steps_local, "-vsl", "--vis-steps-local", "Visualize every n-th timestep in the local time loops (<=0 no output)");
+  args.AddOption(&t_final, "-tf", "--t-final", "Final time; start time is 0");
+  args.AddOption(&dt, "-dt", "--time-step", "Time step for pressure solver");
+  args.AddOption(&vis_steps_global, "-vsg", "--vis-steps-global", "Visualize every n-th timestep in the pressure time loop (<=0 no output)");
+  args.AddOption(&vis_steps_local, "-vsl", "--vis-steps-local", "Visualize every n-th timestep in the saturation time loops (<=0 no output)");
   args.AddOption(&seis_steps, "-ss", "--seis-steps", "Compute seismic properties with Gassmann and output them every n-th timestep (<=0 no output)");
   args.AddOption(&K, "-K", "--K", "Constant permeability");
   args.AddOption(&phi, "-phi", "--phi", "Constant porosity");
-  args.AddOption(&K_file, "-K-file", "--K-file", "File name for permeability");
-  args.AddOption(&phi_file, "-phi-file", "--phi-file", "File name for porosity");
+  args.AddOption(&K_file, "-K-file", "--K-file", "Name of a binary file (single precision) for heterogeneous permeability");
+  args.AddOption(&phi_file, "-phi-file", "--phi-file", "Name of a binary file (single precision) for heterogeneous porosity");
+  args.AddOption(&outdir, "-outdir", "--output-directory", "Directory for output of the results");
   args.AddOption(&extra, "-extra", "--extra", "Extra string to distinguish output files");
+  args.AddOption(&two_phase_flow, "-two-phase", "--two-phase-flow",
+                 "-single-phase", "--single-phase-flow",
+                 "Simulate two phase flow (otherwise it's single phase)");
 
   darcy.add_options(args);
 
@@ -129,7 +140,12 @@ string Param::get_info() const
 {
   const string str =
       "\nBuild type                 : " + BUILD_TYPE +
-      "\nMFEM path                  : " + MFEM_PATH +
+      "\nMFEM directory             : " + MFEM_DIR +
+      "\nMFEM library               : " + MFEM_LIB +
+      "\nHypre directory            : " + HYPRE_DIR +
+      "\nHypre library              : " + HYPRE_LIB +
+      "\nMetis directory            : " + METIS_DIR +
+      "\nMetis library              : " + METIS_LIB +
       "\nConfig date and time (UTC) : " + CONFIG_TIME +
       "\nUser name                  : " + USER_NAME +
       "\nHost name                  : " + HOST_NAME +

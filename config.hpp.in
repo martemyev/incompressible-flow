@@ -11,7 +11,12 @@
 #endif
 
 const std::string BUILD_TYPE = "@BUILD_TYPE@";
-const std::string MFEM_PATH = "@MFEM_DIR@/@MFEM_BUILD@";
+const std::string MFEM_DIR = "@MFEM_DIR@";
+const std::string MFEM_LIB = "@MFEM_LIBRARY@";
+const std::string HYPRE_DIR = "@HYPRE_DIR@";
+const std::string HYPRE_LIB = "@HYPRE_LIBRARY@";
+const std::string METIS_DIR = "@METIS_DIR@";
+const std::string METIS_LIB = "@METIS_LIBRARY@";
 const std::string CONFIG_TIME = "@CONFIG_TIME@";
 const std::string USER_NAME = "@USER_NAME@";
 const std::string HOST_NAME = "@HOST_NAME@";

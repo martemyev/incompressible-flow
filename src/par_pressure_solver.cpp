@@ -28,9 +28,12 @@ void ParPressureSolver(const Array<int>& block_offsets,
   int myid;
   MPI_Comm_rank(MPI_COMM_WORLD, &myid);
 
+  const int n_cells = param.get_n_cells();
+
   const bool own_array = false;
-  CWCoefficient K(saturation, MU_W, MU_O, param.K_array, param.n_cells, own_array);
-  CWConstCoefficient Q(param.Q_array, param.n_cells, own_array);
+  CWCoefficient K(saturation, MU_W, MU_O, param.K_array, n_cells,
+                  param.two_phase_flow, own_array);
+  CWConstCoefficient Q(param.Q_array, n_cells, own_array);
 //  ConstantCoefficient K(1.0);
 //  FunctionCoefficient Q(q_func);
 

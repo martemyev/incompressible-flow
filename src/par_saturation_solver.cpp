@@ -7,13 +7,14 @@ using namespace mfem;
 
 #if defined(MFEM_USE_MPI) // parallel mode
 
-void FS(const ParGridFunction& S, Vector& fs)
+void FS(const Vector& S, Vector& fs)
 {
   MFEM_VERIFY(S.Size() == fs.Size(), "Dimensions mismatch");
+  const bool two_phase_flow = true; // this is only valid for two phase flow
   for (int i = 0; i < S.Size(); ++i)
   {
-    const double mw = Krw(S(i)) / MU_W;
-    const double mo = Kro(S(i)) / MU_O;
+    const double mw = Krw(S(i), two_phase_flow) / MU_W;
+    const double mo = Kro(S(i), two_phase_flow) / MU_O;
     fs(i) = mw / (mw + mo);
   }
 }
@@ -26,9 +27,11 @@ void FS(const ParGridFunction& S, Vector& fs)
 class FE_Evolution : public TimeDependentOperator
 {
 public:
-  FE_Evolution(HypreParMatrix &_M, HypreParMatrix &_K, const Vector &_b)
+  FE_Evolution(HypreParMatrix &_M, HypreParMatrix &_K, const Vector &_b,
+               bool two_phase)
     : TimeDependentOperator(_M.Height()),
-      M(_M), K(_K), b(_b), M_solver(M.GetComm()), z(_M.Height())
+      M(_M), K(_K), b(_b), M_solver(M.GetComm()), z(_M.Height()),
+      two_phase_flow(two_phase)
   {
     M_prec.SetType(HypreSmoother::Jacobi);
     M_solver.SetPreconditioner(M_prec);
@@ -43,14 +46,18 @@ public:
 
   void Mult(const Vector &x, Vector &y) const
   {
-#if defined(TWO_PHASE_FLOW)
-    FS(S, fs);
-    (*Kt).Mult(fs, z); // S = S + dt M^-1( K F(S) + b)
-#else
-    // S = S + dt M^-1( K S + b)
-    // y = M^{-1} (K x + b)
-    K.Mult(x, z);
-#endif
+    if (two_phase_flow)
+    {
+      Vector fs(x.Size());
+      FS(x, fs);
+      K.Mult(fs, z); // S = S + dt M^-1( K F(S) + b)
+    }
+    else
+    {
+      // S = S + dt M^-1( K S + b)
+      // y = M^{-1} (K x + b)
+      K.Mult(x, z);
+    }
     z += b;
     M_solver.Mult(z, y);
   }
@@ -62,6 +69,7 @@ private:
    const Vector &b;
    HypreSmoother M_prec;
    CGSolver M_solver;
+   bool two_phase_flow;
 
    mutable Vector z;
 };
@@ -78,10 +86,10 @@ void ParSaturationSolver(const Param &param, ParGridFunction &S,
   ParFiniteElementSpace &S_space = *(S.ParFESpace());
 
   const bool own_array = false;
-  CWConstCoefficient Phi(param.phi_array, param.n_cells, own_array);
+  CWConstCoefficient Phi(param.phi_array, param.get_n_cells(), own_array);
 
   ParBilinearForm m(&S_space);
-  m.AddDomainIntegrator(new MassIntegrator); //(Phi));
+  m.AddDomainIntegrator(new MassIntegrator(Phi));
   ParBilinearForm k(&S_space);
   k.AddDomainIntegrator(new TransposeIntegrator(new ConvectionIntegrator(velocity, 1.0)));
   k.AddInteriorFaceIntegrator(new DGTraceIntegrator(velocity, -1.0, -0.5));
@@ -121,7 +129,7 @@ void ParSaturationSolver(const Param &param, ParGridFunction &S,
 
   HypreParVector *SV = S.GetTrueDofs();
 
-  FE_Evolution adv(*M, *K, *B);
+  FE_Evolution adv(*M, *K, *B, param.two_phase_flow);
   ode_solver->Init(adv);
 
   double t = 0.0;

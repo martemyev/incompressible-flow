@@ -8,10 +8,11 @@ using namespace mfem;
 void FS(const GridFunction& S, Vector& fs)
 {
   MFEM_VERIFY(S.Size() == fs.Size(), "Dimensions mismatch");
+  const bool two_phase_flow = true; // this is only valid for two phase flow
   for (int i = 0; i < S.Size(); ++i)
   {
-    const double mw = Krw(S(i)) / MU_W;
-    const double mo = Kro(S(i)) / MU_O;
+    const double mw = Krw(S(i), two_phase_flow) / MU_W;
+    const double mo = Kro(S(i), two_phase_flow) / MU_O;
     fs(i) = mw / (mw + mo);
   }
 }
@@ -22,8 +23,10 @@ void SaturationSolver(const Param &param, GridFunction &S,
 {
   FiniteElementSpace &S_space = *S.FESpace();
 
+  const int n_cells = param.get_n_cells();
+
   const bool own_array = false;
-  CWConstCoefficient Phi(param.phi_array, param.n_cells, own_array);
+  CWConstCoefficient Phi(param.phi_array, n_cells, own_array);
 
   BilinearForm m(&S_space);
   m.AddDomainIntegrator(new MassIntegrator(Phi));
@@ -36,7 +39,7 @@ void SaturationSolver(const Param &param, GridFunction &S,
 //  k.AddBdrFaceIntegrator(
 //     new TransposeIntegrator(new DGTraceIntegrator(velocity, 1.0, -0.5)));
 
-  CWConstCoefficient R(param.R_array, param.n_cells, own_array);
+  CWConstCoefficient R(param.R_array, n_cells, own_array);
   LinearForm b(&S_space);
   b.AddDomainIntegrator(new DomainLFIntegrator(R));
 
@@ -64,10 +67,7 @@ void SaturationSolver(const Param &param, GridFunction &S,
   M_solver.SetMaxIter(100);
   M_solver.SetPrintLevel(0);
 
-  Vector y(N), z(N);
-#if defined(TWO_PHASE_FLOW)
-  Vector fs(N);
-#endif
+  Vector y(N), z(N), fs(N);
 
   string extra = (string)param.extra + "_";
 
@@ -76,12 +76,16 @@ void SaturationSolver(const Param &param, GridFunction &S,
   int nt = global_dt / dt;
   for (int ti = 1; ti <= nt; ++ti)
   {
-#if defined(TWO_PHASE_FLOW)
-     FS(S, fs);
-     (*Kt).Mult(fs, z); // S = S + dt M^-1( K F(S) + b)
-#else
-     (*Kt).Mult(S, z); // S = S + dt M^-1( K S + b)
-#endif
+     if (param.two_phase_flow)
+     {
+       FS(S, fs);
+       (*Kt).Mult(fs, z); // S = S + dt M^-1( K F(S) + b)
+     }
+     else
+     {
+       (*Kt).Mult(S, z); // S = S + dt M^-1( K S + b)
+     }
+
      z += b;
      M_solver.Mult(z, y);
      y *= dt;
@@ -92,13 +96,9 @@ void SaturationSolver(const Param &param, GridFunction &S,
         Vector S_nodal;
         S.GetNodalValues(S_nodal);
         string tstr = d2s(ti, 0, 0, 0, 6);
-#if defined(TWO_PHASE_FLOW)
-        string fname = "saturation_" + extra + d2s(param.spacedim) + "D_2phase_glob" +
-                       d2s(global_ti) + "_loc_" + tstr + ".vts";
-#else
-        string fname = "saturation_" + extra + d2s(param.spacedim) + "D_1phase_glob" +
-                       d2s(global_ti) + "_loc_" + tstr + ".vts";
-#endif
+        string phase = (param.two_phase_flow ? "2phase" : "1phase");
+        string fname = "saturation_" + extra + d2s(param.spacedim) + "D_" +
+                       phase + "_glob" + d2s(global_ti) + "_loc_" + tstr + ".vts";
         if (param.spacedim == 2)
           write_vts_scalar(fname, "saturation", param.sx, param.sy,
                            param.nx, param.ny, S_nodal);
