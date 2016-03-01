@@ -71,8 +71,7 @@ void SaturationSolver(const Param &param, GridFunction &S,
 
   string extra = (string)param.extra + "_";
 
-//  int nt = 400;
-  double dt = 1e-2; //global_dt/nt;
+  double dt = param.dt_local;
   int nt = global_dt / dt;
   for (int ti = 1; ti <= nt; ++ti)
   {

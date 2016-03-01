@@ -133,8 +133,7 @@ void ParSaturationSolver(const Param &param, ParGridFunction &S,
   ode_solver->Init(adv);
 
   double t = 0.0;
-//  int nt = 1000;
-  double dt = 1e-2; //global_dt / nt;
+  double dt = param.dt_local;
 
   if (myid == 0)
   {
@@ -153,21 +152,11 @@ void ParSaturationSolver(const Param &param, ParGridFunction &S,
     ode_solver->Step(*SV, t, dt);
     ti++;
 
-//    if (myid == 0)
-//    {
-//      std::cout << "t_final = " << global_dt << std::endl;
-//      std::cout << "dt      = " << dt << std::endl;
-//      std::cout << "SV norm = " << SV->Norml2() << std::endl;
-//      std::cout << "t       = " << t << std::endl;
-//    }
-
     if (param.vis_steps_local > 0 && ti % param.vis_steps_local == 0)
     {
        if (myid == 0)
          cout << "time step: " << ti << ", time: " << t << endl;
 
-       // 11. Extract the parallel grid function corresponding to the finite
-       //     element approximation U (the local solution on each processor).
        S = *SV;
 
        visit.SetCycle(global_ti + ti);

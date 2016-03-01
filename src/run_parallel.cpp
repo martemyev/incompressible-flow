@@ -158,10 +158,10 @@ void run_parallel(int argc, char **argv)
   if (myid == 0)
     output_seismic_properties(p, 0, rho_array, vp_array, vs_array);
 
-  VisItDataCollection visit("inc-flow-parallel", pmesh);
-  visit.RegisterField("pressure", &P);
-  visit.RegisterField("velocity", &V);
-  visit.RegisterField("saturation", &S);
+  VisItDataCollection visit_global("inc-flow-parallel", pmesh);
+  visit_global.RegisterField("pressure", &P);
+  visit_global.RegisterField("velocity", &V);
+  visit_global.RegisterField("saturation", &S);
 
   VisItDataCollection visit_local("inc-flow-parallel-local", pmesh);
   visit_local.RegisterField("saturation", &S);
@@ -169,7 +169,7 @@ void run_parallel(int argc, char **argv)
   StopWatch global_time_loop;
   global_time_loop.Start();
 
-  int nt = ceil(p.t_final / p.dt);
+  int nt = ceil(p.t_final / p.dt_global);
   if (myid == 0)
     cout << "Number of global time steps: " << nt << endl;
 
@@ -179,37 +179,16 @@ void run_parallel(int argc, char **argv)
                       V_space, P_space, saturation, x, trueX);
 
     V.Distribute(&trueX.GetBlock(0));
-    ParSaturationSolver(p, S, velocity, ti, p.dt, visit_local);
+    ParSaturationSolver(p, S, velocity, ti, p.dt_global, visit_local);
 
     if (p.vis_steps_global > 0 && ti % p.vis_steps_global == 0)
     {
-      V.Distribute(&trueX.GetBlock(0));
       P.Distribute(&trueX.GetBlock(1));
 
-//      const std::string time_str =  d2s(ti, 0, 0, 0, 6);
-//      const std::string rank_str =  d2s(myid, 0, 0, 0, 6);
-//      std::string mesh_name = "output/mesh_t" + time_str + "." + rank_str;
-//      std::string V_name = "output/solV_t" + time_str + "." + rank_str;
-//      std::string P_name = "output/solP_t" + time_str + "." + rank_str;
-
-//      ofstream mesh_ofs(mesh_name.c_str());
-//      mesh_ofs.precision(8);
-//      pmesh->Print(mesh_ofs);
-
-//      ofstream V_ofs(V_name.c_str());
-//      V_ofs.precision(8);
-//      V.Save(V_ofs);
-
-//      ofstream P_ofs(P_name.c_str());
-//      P_ofs.precision(8);
-//      P.Save(P_ofs);
-      visit.SetCycle(ti);
-      visit.SetTime(ti*p.dt);
-      visit.Save();
+      visit_global.SetCycle(ti);
+      visit_global.SetTime(ti*p.dt_global);
+      visit_global.Save();
     }
-
-
-
 
 //    if (p.seis_steps > 0 && ti % p.seis_steps == 0) // update seismic properties
 //    {

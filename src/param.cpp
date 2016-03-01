@@ -50,7 +50,7 @@ Param::Param()
   , phi_array(nullptr)
   , R_array(nullptr)
   , order_v(1), order_p(1), order_s(0)
-  , t_final(200), dt(100)
+  , t_final(200), dt_global(100), dt_local(1)
   , vis_steps_global(1)
   , vis_steps_local(-1) // negative means no output
   , seis_steps(1)
@@ -116,10 +116,11 @@ void Param::add_options(OptionsParser &args)
   args.AddOption(&order_p, "-op", "--orderp", "Order (degree) of the finite elements for pressure");
   args.AddOption(&order_s, "-os", "--orders", "Order (degree) of the finite elements for saturation");
   args.AddOption(&t_final, "-tf", "--t-final", "Final time; start time is 0");
-  args.AddOption(&dt, "-dt", "--time-step", "Time step for pressure solver");
+  args.AddOption(&dt_global, "-dtg", "--time-step-global", "Time step for pressure solver");
+  args.AddOption(&dt_local, "-dtl", "--time-step-local", "Time step for saturation solver");
   args.AddOption(&vis_steps_global, "-vsg", "--vis-steps-global", "Visualize every n-th timestep in the pressure time loop (<=0 no output)");
   args.AddOption(&vis_steps_local, "-vsl", "--vis-steps-local", "Visualize every n-th timestep in the saturation time loops (<=0 no output)");
-  args.AddOption(&seis_steps, "-ss", "--seis-steps", "Compute seismic properties with Gassmann and output them every n-th timestep (<=0 no output)");
+  args.AddOption(&seis_steps, "-ss", "--seis-steps", "Compute seismic properties with Gassmann and output them every n-th global timestep (<=0 no output)");
   args.AddOption(&K, "-K", "--K", "Constant permeability");
   args.AddOption(&phi, "-phi", "--phi", "Constant porosity");
   args.AddOption(&K_file, "-K-file", "--K-file", "Name of a binary file (single precision) for heterogeneous permeability");

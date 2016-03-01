@@ -127,22 +127,17 @@ void run_serial(int argc, char **argv)
   StopWatch global_time_loop;
   global_time_loop.Start();
 
-  int nt = ceil(p.t_final / p.dt);
+  int nt = ceil(p.t_final / p.dt_global);
   cout << "Number of global time steps: " << nt << endl;
   for (int ti = 1; ti <= nt; ++ti)
   {
-//    const string tstr = d2s(ti, 0, 0, 0, 6);
-
     PressureSolver(block_offsets, *mesh, p, V_space, P_space, saturation, x);
-    SaturationSolver(p, S, velocity, ti, p.dt);
+    SaturationSolver(p, S, velocity, ti, p.dt_global);
 
     if (p.vis_steps_global > 0 && ti % p.vis_steps_global == 0)
     {
-//      output_scalar(p, P, tstr, "pressure");
-//      output_vector(p, V, tstr, "velocity");
-//      output_scalar(p, S, tstr, "saturation");
       visit.SetCycle(ti);
-      visit.SetTime(ti*p.dt);
+      visit.SetTime(ti*p.dt_global);
       visit.Save();
     }
 

@@ -36,7 +36,9 @@ struct Param
 
   int order_v, order_p, order_s; ///< Orders of finite elements for approximation
                                  ///< of (v)elocity, (p)ressure and (s)aturation
-  double t_final, dt; ///< Final time and a time step
+  double t_final; ///< Final time of simulation
+  double dt_global; ///< Time step for pressure (global time loop)
+  double dt_local; ///< Time step for saturation (local time loop)
   int vis_steps_global; ///< Visualization step for pressure solver (global)
   int vis_steps_local; ///< Visualization step for saturation solver (local)
   int seis_steps; ///< Output step for seismic media properties (based on Gassmann)
