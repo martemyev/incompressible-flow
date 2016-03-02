@@ -13,6 +13,155 @@ using namespace std;
 using namespace mfem;
 
 #if defined(MFEM_USE_MPI) // parallel mode
+
+
+
+class ValuesInCells : public Coefficient
+{
+public:
+  ValuesInCells(Coefficient &coef, Vector &in_cells, std::vector<int> &flags,
+                int ncells)
+    : coefficient(coef), values_in_cells(in_cells), flags_of_cells(flags),
+      n_cells(ncells)
+  {}
+
+  virtual ~ValuesInCells() {}
+
+  virtual double Eval(ElementTransformation &T, const IntegrationPoint &ip)
+  {
+    const int index = T.Attribute - 1; // use attribute as a cell number
+    MFEM_ASSERT(index >= 0 && index < n_cells, "Element number (attribute) is "
+                "out of range: " + d2s(index));
+
+    const double val = coefficient.Eval(T, ip);
+    values_in_cells(index) = val;
+    flags_of_cells[index] = 1;
+    return val;
+  }
+
+private:
+  Coefficient &coefficient;
+  Vector &values_in_cells;
+  std::vector<int> &flags_of_cells;
+  int n_cells;
+};
+
+
+
+//class GassmannRho: public Coefficient
+//{
+//public:
+//  GassmannRho(Coefficient &S, double *rho, const double *phi)
+//    : saturation(S), rho_array(rho), phi_array(phi)
+//  {}
+
+//  virtual ~GassmannRho() {}
+
+//  virtual double Eval(ElementTransformation &T, const IntegrationPoint &ip)
+//  {
+//    const int index = T.Attribute - 1; // use attribute as a cell number
+//    MFEM_ASSERT(index >= 0 && index < n_cells, "Element number (attribute) is "
+//                "out of range: " + d2s(index));
+
+//    const double S   = saturation.Eval(T, ip);
+//    const double phi = phi_array[index];
+
+//    const double rho_fl_mix = rho_fl(S, RHO_W, RHO_O);
+
+//    const double rho = rho_B(rho_fl_mix, RHO_GRAIN, phi);
+//    rho_array[index] = rho;
+
+//    return rho;
+//  }
+
+//private:
+//  Coefficient& saturation;
+//  double *rho_array;
+//  const double *phi_array;
+//};
+
+
+
+//class GassmannVp: public Coefficient
+//{
+//public:
+//  GassmannVp(Coefficient &S, const double *rho, double *vp,
+//             const double *vs, const double *phi)
+//    : saturation(S), rho_array(rho), vp_array(vp), vs_array(vs), phi_array(phi)
+//  {}
+
+//  virtual ~GassmannVp() {}
+
+//  virtual double Eval(ElementTransformation &T, const IntegrationPoint &ip)
+//  {
+//    const int index = T.Attribute - 1; // use attribute as a cell number
+//    MFEM_ASSERT(index >= 0 && index < n_cells, "Element number (attribute) is "
+//                "out of range: " + d2s(index));
+
+//    const double K_w = K_func(VP_W, VS_W, RHO_W); // bulk modulus of water
+//    const double K_o = K_func(VP_O, VS_O, RHO_O); // bulk modulus of oil
+
+//    const double S   = saturation.Eval(T, ip);
+//    const double rho = rho_array[index];
+//    const double vs  = vs_array[index];
+//    const double phi = phi_array[index];
+
+//    const double G = G_func(vs, rho);
+
+//    const double K_fl_mix   = K_fl(S, K_w, K_o);
+
+//    const double Kframe = K_frame(K_MINERAL_MATRIX, K_FLUID_COMPONENT,
+//                                  F_MINERAL_MATRIX, F_FLUID_COMPONENT);
+//    const double Ksat = K_sat(Kframe, K_MINERAL_MATRIX, K_fl_mix, phi);
+
+//    const double vp = vp_func(Ksat, G, rho);
+//    vp_array[index] = vp;
+
+//    return vp;
+//  }
+
+//private:
+//  Coefficient& saturation;
+//  const double *rho_array;
+//  double *vp_array;
+//  const double *vs_array;
+//  const double *phi_array;
+//};
+
+
+
+//class GassmannVs: public Coefficient
+//{
+//public:
+//  GassmannVs(const double *rho, double *vs)
+//    : rho_array(rho), vs_array(vs)
+//  {}
+
+//  virtual ~GassmannVs() {}
+
+//  virtual double Eval(ElementTransformation &T, const IntegrationPoint &ip)
+//  {
+//    const int index = T.Attribute - 1; // use attribute as a cell number
+//    MFEM_ASSERT(index >= 0 && index < n_cells, "Element number (attribute) is "
+//                "out of range: " + d2s(index));
+
+//    const double rho = rho_array[index];
+//    const double vs_old = vs_array[index];
+//    const double G = G_func(vs_old, rho);
+//    const double vs_new = vs_func(G, rho);
+//    vs_array[index] = vs_new;
+
+//    return vs_new;
+//  }
+
+//private:
+//  const double *rho_array;
+//  double *vs_array;
+//};
+
+
+
+
 void run_parallel(int argc, char **argv)
 {
   int num_procs, myid;
@@ -49,6 +198,12 @@ void run_parallel(int argc, char **argv)
     args.PrintOptions(cout);
 
   p.init_arrays();
+
+  if (myid == 0)
+  {
+    string cmd = "mkdir -p " + string(p.outdir);
+    system(cmd.c_str());
+  }
 
   ParMesh *pmesh = nullptr;
 
@@ -115,55 +270,29 @@ void run_parallel(int argc, char **argv)
   VectorGridFunctionCoefficient velocity(&V);
 
   const int n_cells = p.get_n_cells();
-
-  Vector rho_array(n_cells);
-  Vector vp_array(n_cells);
-  Vector vs_array(n_cells);
+  Vector saturation_in_cells(n_cells);
+  std::vector<int> saturation_flags(n_cells, 0);
+  ValuesInCells vic(saturation, saturation_in_cells, saturation_flags, n_cells);
 
   const double Kframe = K_frame(K_MINERAL_MATRIX, K_FLUID_COMPONENT,
                                 F_MINERAL_MATRIX, F_FLUID_COMPONENT);
   if (myid == 0)
     cout << "Kframe = " << Kframe << endl;
 
-  double minKsat = DBL_MAX, maxKsat = DBL_MIN;
-  double rhomm[2], vpmm[2], vsmm[2];
-
-  // compute seismic properties for S_w = 0
-  for (int i = 0; i < n_cells; ++i)
+  if (p.seis_steps > 0)
   {
-    const double Kfl   = K_func(VP_O, VS_O, RHO_O); // K_fluid = K_oil
-    const double Ksat  = K_sat(Kframe, K_MINERAL_MATRIX, Kfl, p.phi_array[i]);
-    rho_array[i] = rho_B(RHO_O, RHO_GRAIN, p.phi_array[i]); // rho_fluid = rho_oil
-    vp_array[i]  = vp_func(Ksat, G_MINERAL_MATRIX, rho_array[i]);
-    vs_array[i]  = vs_func(G_MINERAL_MATRIX, rho_array[i]);
-    minKsat = min(minKsat, Ksat);
-    maxKsat = max(maxKsat, Ksat);
-    get_minmax(rho_array, n_cells, rhomm[0], rhomm[1]);
-    get_minmax(vp_array, n_cells, vpmm[0], vpmm[1]);
-    get_minmax(vs_array, n_cells, vsmm[0], vsmm[1]);
+    S.ProjectCoefficient(vic);
+    const std::string tstr = d2s(0, 0, 0, 0, 6); // ti = 0
+    output_scalar_cells(p, saturation_in_cells, saturation_flags, tstr,
+                        "saturation");
   }
 
-  if (myid == 0)
-  {
-    cout << "minKsat = " << minKsat << endl;
-    cout << "maxKsat = " << maxKsat << endl;
-    cout << "rhomin  = " << rhomm[0] << endl;
-    cout << "rhomax  = " << rhomm[1] << endl;
-    cout << "vpmin   = " << vpmm[0] << endl;
-    cout << "vpmax   = " << vpmm[1] << endl;
-    cout << "vsmin   = " << vsmm[0] << endl;
-    cout << "vsmax   = " << vsmm[1] << endl;
-  }
-
-  if (myid == 0)
-    output_seismic_properties(p, 0, rho_array, vp_array, vs_array);
-
-  VisItDataCollection visit_global("inc-flow-parallel", pmesh);
+  VisItDataCollection visit_global("inc-flow-parallel-global", pmesh, p.outdir);
   visit_global.RegisterField("pressure", &P);
   visit_global.RegisterField("velocity", &V);
   visit_global.RegisterField("saturation", &S);
 
-  VisItDataCollection visit_local("inc-flow-parallel-local", pmesh);
+  VisItDataCollection visit_local("inc-flow-parallel-local", pmesh, p.outdir);
   visit_local.RegisterField("saturation", &S);
 
   StopWatch global_time_loop;
@@ -190,42 +319,22 @@ void run_parallel(int argc, char **argv)
       visit_global.Save();
     }
 
-//    if (p.seis_steps > 0 && ti % p.seis_steps == 0) // update seismic properties
-//    {
-//      Vector S_w(p.n_cells); // water saturation values in each cell
-//      if (p.spacedim == 2)
-//        compute_in_cells(p.sx, p.sy, p.nx, p.ny, *mesh, S, S_w);
-//      else if (p.spacedim == 3)
-//        compute_in_cells(p.sx, p.sy, p.sz, p.nx, p.ny, p.nz, *mesh, S, S_w);
-//      else MFEM_ABORT("Not supported spacedim");
+    // update seismic properties
+    if (p.seis_steps > 0 && ti % p.seis_steps == 0)
+    {
+      S.ProjectCoefficient(vic);
+      const std::string tstr = d2s(ti, 0, 0, 0, 6);
+      output_scalar_cells(p, saturation_in_cells, saturation_flags, tstr,
+                          "saturation");
+    }
 
-//      Gassmann(S_w, p, K_MINERAL_MATRIX, Kframe, RHO_GRAIN,
-//               p.phi_array, rho_array, vp_array, vs_array);
+    cout << "time step " << ti << " is done" << endl;
 
-//      get_minmax(rho_array, p.n_cells, rhomm[0], rhomm[1]);
-//      get_minmax(vp_array, p.n_cells, vpmm[0], vpmm[1]);
-//      get_minmax(vs_array, p.n_cells, vsmm[0], vsmm[1]);
-//      if (verbose)
-//      {
-//        cout << "rhomin  = " << rhomm[0] << endl;
-//        cout << "rhomax  = " << rhomm[1] << endl;
-//        cout << "vpmin  = " << vpmm[0] << endl;
-//        cout << "vpmax  = " << vpmm[1] << endl;
-//        cout << "vsmin  = " << vsmm[0] << endl;
-//        cout << "vsmax  = " << vsmm[1] << endl;
-//      }
-
-//      output_seismic_properties(p, ti, rho_array, vp_array, vs_array);
-//    }
-
-//    cout << "time step " << ti << " is done" << endl;
-
-//    if (S.Max() > 1.1)
-//    {
-//      if (verbose)
-//        cout << "Saturation went up to more than 1.1. The process stops." << endl;
-//      break;
-//    }
+    if (S.Max() > 1.1)
+    {
+      cout << "Saturation went up to more than 1.1. The process stops." << endl;
+      break;
+    }
   }
 
   if (myid == 0)

@@ -545,20 +545,75 @@ void compute_in_cells(double sx, double sy, double sz, int nx, int ny, int nz,
 
 
 
-void output_scalar(const Param& p, const GridFunction& P, const string& tstr,
+void output_scalar(const Param& p, const GridFunction& x, const string& tstr,
                    const string& name)
 {
   string phase = (p.two_phase_flow ? "2phase" : "1phase");
-  string fname = name + "_" + p.extra + "_" + d2s(p.spacedim) + "D_" + phase +
-                 "_" + tstr + ".vts";
+  string fname = string(p.outdir) + "/" + name + "_" + p.extra + "_" +
+                 d2s(p.spacedim) + "D_" + phase + "_" + tstr + ".vts";
 
-  Vector P_nodal;
-  P.GetNodalValues(P_nodal);
+  Vector x_nodal;
+  x.GetNodalValues(x_nodal);
   if (p.spacedim == 2)
-    write_vts_scalar(fname, name, p.sx, p.sy, p.nx, p.ny, P_nodal);
+    write_vts_scalar(fname, name, p.sx, p.sy, p.nx, p.ny, x_nodal);
   else if (p.spacedim == 3)
-    write_vts_scalar(fname, name, p.sx, p.sy, p.sz, p.nx, p.ny, p.nz, P_nodal);
+    write_vts_scalar(fname, name, p.sx, p.sy, p.sz, p.nx, p.ny, p.nz, x_nodal);
   else MFEM_ABORT("Not supported spacedim");
+}
+
+
+
+void output_scalar_cells(const Param& p, Vector x, std::vector<int> flags,
+                         const string& tstr, const string& name)
+{
+  string phase = (p.two_phase_flow ? "2phase" : "1phase");
+  string fname = string(p.outdir) + "/" + name + "_" + p.extra + "_" +
+                 d2s(p.spacedim) + "D_" + phase + "_" + tstr + ".vts";
+
+#if defined(MFEM_USE_MPI)
+  int num_procs, myid;
+  MPI_Comm_rank(MPI_COMM_WORLD, &myid);
+  MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
+  const int n_cells = p.get_n_cells();
+  const int tag_values = 11;
+  const int tag_flags = 12;
+  if (myid == 0)
+  {
+    double *Xvalues = new double[n_cells];
+    int *Xflags = new int[n_cells];
+    MPI_Status status;
+    for (int rank = 1; rank < num_procs; ++rank)
+    {
+      MPI_Recv(Xvalues, n_cells, MPI_DOUBLE, MPI_ANY_SOURCE, tag_values,
+               MPI_COMM_WORLD, &status);
+      MPI_Recv(Xflags, n_cells, MPI_INTEGER, MPI_ANY_SOURCE, tag_flags,
+               MPI_COMM_WORLD, &status);
+      for (int el = 0; el < n_cells; ++el)
+      {
+        if (Xflags[el])
+          x(el) = Xvalues[el];
+      }
+    }
+    delete[] Xflags;
+    delete[] Xvalues;
+
+    if (p.spacedim == 2)
+      write_vts_scalar_cells(fname, name, p.sx, p.sy, p.nx, p.ny, x);
+    else if (p.spacedim == 3)
+      write_vts_scalar_cells(fname, name, p.sx, p.sy, p.sz, p.nx, p.ny, p.nz, x);
+    else MFEM_ABORT("Unknown spacedim");
+  }
+  else
+  {
+    MPI_Send(x.GetData(), n_cells, MPI_DOUBLE, 0, tag_values, MPI_COMM_WORLD);
+    MPI_Send(&flags[0], n_cells, MPI_INTEGER, 0, tag_flags, MPI_COMM_WORLD);
+  }
+#else // MFEM_USE_MPI
+  if (p.spacedim == 2)
+    write_vts_scalar_cells(fname, name, p.sx, p.sy, p.nx, p.ny, x);
+  else if (p.spacedim == 3)
+    write_vts_scalar_cells(fname, name, p.sx, p.sy, p.sz, p.nx, p.ny, p.nz, x);
+#endif // MFEM_USE_MPI
 }
 
 
@@ -722,6 +777,21 @@ void Gassmann(const Vector& S, const Param& param, double K_m, double Kframe,
 
   cout << "minKsat = " << minKsat << endl;
   cout << "maxKsat = " << maxKsat << endl;
+}
+
+double compute_rho(const Vector &x)
+{
+  return 0.;
+}
+
+double compute_vp(const Vector &x)
+{
+  return 0.;
+}
+
+double compute_vs(const Vector &x)
+{
+  return 0.;
 }
 
 

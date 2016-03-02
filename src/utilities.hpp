@@ -147,6 +147,8 @@ void compute_in_cells(double sx, double sy, double sz, int nx, int ny, int nz,
 
 void output_scalar(const Param& p, const mfem::GridFunction& P,
                    const std::string& tstr, const std::string& name);
+void output_scalar_cells(const Param& p, mfem::Vector x, std::vector<int> flags,
+                         const std::string& tstr, const std::string& name);
 
 void output_vector(const Param& p, const mfem::GridFunction& V,
                    const std::string& tstr, const std::string& name);
@@ -171,5 +173,9 @@ double K_sat(double K_frame, double K_m, double K_fl, double phi);
 void Gassmann(const mfem::Vector& S, const Param& param, double K_m,
               double K_frame,double rho_gr, double *phi, double *rho,
               double *vp, double *vs);
+
+double compute_rho(const mfem::Vector &x);
+double compute_vp(const mfem::Vector &x);
+double compute_vs(const mfem::Vector &x);
 
 #endif // UTILITIES_HPP
