@@ -157,4 +157,37 @@ protected:
   bool own_array;
 };
 
+
+
+class ValuesInCells : public mfem::Coefficient
+{
+public:
+  ValuesInCells(mfem::Coefficient &coef, mfem::Vector &in_cells,
+                std::vector<int> &flags, int ncells)
+    : coefficient(coef), values_in_cells(in_cells), flags_of_cells(flags),
+      n_cells(ncells)
+  {}
+
+  virtual ~ValuesInCells() {}
+
+  virtual double Eval(mfem::ElementTransformation &T,
+                      const mfem::IntegrationPoint &ip)
+  {
+    const int index = T.Attribute - 1; // use attribute as a cell number
+    MFEM_ASSERT(index >= 0 && index < n_cells, "Element number (attribute) is "
+                "out of range: " + d2s(index));
+
+    const double val = coefficient.Eval(T, ip);
+    values_in_cells(index) = val;
+    flags_of_cells[index] = 1;
+    return val;
+  }
+
+private:
+  mfem::Coefficient &coefficient;
+  mfem::Vector &values_in_cells;
+  std::vector<int> &flags_of_cells;
+  int n_cells;
+};
+
 #endif // PARAM_HPP

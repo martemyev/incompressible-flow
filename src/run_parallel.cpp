@@ -16,38 +16,6 @@ using namespace mfem;
 
 
 
-class ValuesInCells : public Coefficient
-{
-public:
-  ValuesInCells(Coefficient &coef, Vector &in_cells, std::vector<int> &flags,
-                int ncells)
-    : coefficient(coef), values_in_cells(in_cells), flags_of_cells(flags),
-      n_cells(ncells)
-  {}
-
-  virtual ~ValuesInCells() {}
-
-  virtual double Eval(ElementTransformation &T, const IntegrationPoint &ip)
-  {
-    const int index = T.Attribute - 1; // use attribute as a cell number
-    MFEM_ASSERT(index >= 0 && index < n_cells, "Element number (attribute) is "
-                "out of range: " + d2s(index));
-
-    const double val = coefficient.Eval(T, ip);
-    values_in_cells(index) = val;
-    flags_of_cells[index] = 1;
-    return val;
-  }
-
-private:
-  Coefficient &coefficient;
-  Vector &values_in_cells;
-  std::vector<int> &flags_of_cells;
-  int n_cells;
-};
-
-
-
 void run_parallel(int argc, char **argv)
 {
   int num_procs, myid;
@@ -160,17 +128,12 @@ void run_parallel(int argc, char **argv)
   std::vector<int> saturation_flags(n_cells, 0);
   ValuesInCells vic(saturation, saturation_in_cells, saturation_flags, n_cells);
 
-  const double Kframe = K_frame(K_MINERAL_MATRIX, K_FLUID_COMPONENT,
-                                F_MINERAL_MATRIX, F_FLUID_COMPONENT);
-  if (myid == 0)
-    cout << "Kframe = " << Kframe << endl;
-
   if (p.seis_steps > 0)
   {
     S.ProjectCoefficient(vic);
     const std::string tstr = d2s(0, 0, 0, 0, 6); // ti = 0
-    output_scalar_cells(p, saturation_in_cells, saturation_flags, tstr,
-                        "saturation");
+    output_scalar_cells_parallel(p, saturation_in_cells, saturation_flags, tstr,
+                                 "saturation");
   }
 
   VisItDataCollection visit_global("inc-flow-parallel-global", pmesh, p.outdir);
@@ -211,8 +174,8 @@ void run_parallel(int argc, char **argv)
     {
       S.ProjectCoefficient(vic);
       const std::string tstr = d2s(ti, 0, 0, 0, 6);
-      output_scalar_cells(p, saturation_in_cells, saturation_flags, tstr,
-                          "saturation");
+      output_scalar_cells_parallel(p, saturation_in_cells, saturation_flags, tstr,
+                                   "saturation");
     }
 
     if (myid == 0)

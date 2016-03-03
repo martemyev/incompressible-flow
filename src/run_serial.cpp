@@ -83,44 +83,18 @@ void run_serial(int argc, char **argv)
   VectorGridFunctionCoefficient velocity(&V);
 
   const int n_cells = p.get_n_cells();
-  Vector rho_array(n_cells);
-  Vector vp_array(n_cells);
-  Vector vs_array(n_cells);
+  Vector saturation_in_cells(n_cells);
+  std::vector<int> saturation_flags(n_cells, 0);
+  ValuesInCells vic(saturation, saturation_in_cells, saturation_flags, n_cells);
 
-  const double Kframe = K_frame(K_MINERAL_MATRIX, K_FLUID_COMPONENT,
-                                F_MINERAL_MATRIX, F_FLUID_COMPONENT);
-  cout << "Kframe = " << Kframe << endl;
-
-  double minKsat = DBL_MAX, maxKsat = DBL_MIN;
-  double rhomm[2], vpmm[2], vsmm[2];
-
-  // compute seismic properties for S_w = 0
-  for (int i = 0; i < n_cells; ++i)
+  if (p.seis_steps > 0)
   {
-    const double Kfl   = K_func(VP_O, VS_O, RHO_O); // K_fluid = K_oil
-    const double Ksat  = K_sat(Kframe, K_MINERAL_MATRIX, Kfl, p.phi_array[i]);
-    rho_array[i] = rho_B(RHO_O, RHO_GRAIN, p.phi_array[i]); // rho_fluid = rho_oil
-    vp_array[i]  = vp_func(Ksat, G_MINERAL_MATRIX, rho_array[i]);
-    vs_array[i]  = vs_func(G_MINERAL_MATRIX, rho_array[i]);
-    minKsat = min(minKsat, Ksat);
-    maxKsat = max(maxKsat, Ksat);
-    get_minmax(rho_array, n_cells, rhomm[0], rhomm[1]);
-    get_minmax(vp_array, n_cells, vpmm[0], vpmm[1]);
-    get_minmax(vs_array, n_cells, vsmm[0], vsmm[1]);
+    S.ProjectCoefficient(vic);
+    const std::string tstr = d2s(0, 0, 0, 0, 6); // ti = 0
+    output_scalar_cells_serial(p, saturation_in_cells, tstr, "saturation");
   }
 
-  cout << "minKsat = " << minKsat << endl;
-  cout << "maxKsat = " << maxKsat << endl;
-  cout << "rhomin  = " << rhomm[0] << endl;
-  cout << "rhomax  = " << rhomm[1] << endl;
-  cout << "vpmin   = " << vpmm[0] << endl;
-  cout << "vpmax   = " << vpmm[1] << endl;
-  cout << "vsmin   = " << vsmm[0] << endl;
-  cout << "vsmax   = " << vsmm[1] << endl;
-
-  output_seismic_properties(p, 0, rho_array, vp_array, vs_array);
-
-  VisItDataCollection visit("inc-flow-serial", mesh);
+  VisItDataCollection visit("inc-flow-serial", mesh, p.outdir);
   visit.RegisterField("pressure", &P);
   visit.RegisterField("saturation", &S);
 
@@ -143,27 +117,15 @@ void run_serial(int argc, char **argv)
 
     if (p.seis_steps > 0 && ti % p.seis_steps == 0) // update seismic properties
     {
-      Vector S_w(n_cells); // water saturation values in each cell
-      if (p.spacedim == 2)
-        compute_in_cells(p.sx, p.sy, p.nx, p.ny, *mesh, S, S_w);
-      else if (p.spacedim == 3)
-        compute_in_cells(p.sx, p.sy, p.sz, p.nx, p.ny, p.nz, *mesh, S, S_w);
-      else MFEM_ABORT("Not supported spacedim");
-
-      Gassmann(S_w, p, K_MINERAL_MATRIX, Kframe, RHO_GRAIN,
-               p.phi_array, rho_array, vp_array, vs_array);
-
-      get_minmax(rho_array, n_cells, rhomm[0], rhomm[1]);
-      get_minmax(vp_array, n_cells, vpmm[0], vpmm[1]);
-      get_minmax(vs_array, n_cells, vsmm[0], vsmm[1]);
-      cout << "rhomin  = " << rhomm[0] << endl;
-      cout << "rhomax  = " << rhomm[1] << endl;
-      cout << "vpmin  = " << vpmm[0] << endl;
-      cout << "vpmax  = " << vpmm[1] << endl;
-      cout << "vsmin  = " << vsmm[0] << endl;
-      cout << "vsmax  = " << vsmm[1] << endl;
-
-      output_seismic_properties(p, ti, rho_array, vp_array, vs_array);
+//      Vector S_w(n_cells); // water saturation values in each cell
+//      if (p.spacedim == 2)
+//        compute_in_cells(p.sx, p.sy, p.nx, p.ny, *mesh, S, S_w);
+//      else if (p.spacedim == 3)
+//        compute_in_cells(p.sx, p.sy, p.sz, p.nx, p.ny, p.nz, *mesh, S, S_w);
+//      else MFEM_ABORT("Not supported spacedim");
+      S.ProjectCoefficient(vic);
+      const std::string tstr = d2s(ti, 0, 0, 0, 6);
+      output_scalar_cells_serial(p, saturation_in_cells, tstr, "saturation");
     }
 
     cout << "time step " << ti << " is done" << endl;

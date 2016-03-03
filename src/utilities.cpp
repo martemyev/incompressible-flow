@@ -562,15 +562,32 @@ void output_scalar(const Param& p, const GridFunction& x, const string& tstr,
 }
 
 
-
-void output_scalar_cells(const Param& p, Vector x, std::vector<int> flags,
-                         const string& tstr, const string& name)
+void output_scalar_cells_serial(const Param& p, const Vector& x,
+                                const string& tstr, const string& name)
 {
   string phase = (p.two_phase_flow ? "2phase" : "1phase");
-  string fname = string(p.outdir) + "/" + name + "_" + p.extra + "_" +
-                 d2s(p.spacedim) + "D_" + phase + "_" + tstr + ".vts";
+  string fname_base = string(p.outdir) + "/" + name + "_" + p.extra + "_" +
+                      d2s(p.spacedim) + "D_" + phase + "_" + tstr;
+  string fname_vts = fname_base + ".vts";
+  string fname_bin = fname_base + ".bin";
+
+  const int n_cells = p.get_n_cells();
+  write_binary(fname_bin.c_str(), n_cells, x.GetData());
+
+  if (p.spacedim == 2)
+    write_vts_scalar_cells(fname_vts, name, p.sx, p.sy, p.nx, p.ny, x);
+  else if (p.spacedim == 3)
+    write_vts_scalar_cells(fname_vts, name, p.sx, p.sy, p.sz, p.nx, p.ny, p.nz, x);
+  else MFEM_ABORT("Unknown spacedim");
+}
+
+
 
 #if defined(MFEM_USE_MPI)
+void output_scalar_cells_parallel(const Param& p, Vector x,
+                                  std::vector<int> flags, const string& tstr,
+                                  const string& name)
+{
   int num_procs, myid;
   MPI_Comm_rank(MPI_COMM_WORLD, &myid);
   MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
@@ -597,24 +614,15 @@ void output_scalar_cells(const Param& p, Vector x, std::vector<int> flags,
     delete[] Xflags;
     delete[] Xvalues;
 
-    if (p.spacedim == 2)
-      write_vts_scalar_cells(fname, name, p.sx, p.sy, p.nx, p.ny, x);
-    else if (p.spacedim == 3)
-      write_vts_scalar_cells(fname, name, p.sx, p.sy, p.sz, p.nx, p.ny, p.nz, x);
-    else MFEM_ABORT("Unknown spacedim");
+    output_scalar_cells_serial(p, x, tstr, name);
   }
   else
   {
     MPI_Send(x.GetData(), n_cells, MPI_DOUBLE, 0, tag_values, MPI_COMM_WORLD);
     MPI_Send(&flags[0], n_cells, MPI_INTEGER, 0, tag_flags, MPI_COMM_WORLD);
   }
-#else // MFEM_USE_MPI
-  if (p.spacedim == 2)
-    write_vts_scalar_cells(fname, name, p.sx, p.sy, p.nx, p.ny, x);
-  else if (p.spacedim == 3)
-    write_vts_scalar_cells(fname, name, p.sx, p.sy, p.sz, p.nx, p.ny, p.nz, x);
-#endif // MFEM_USE_MPI
 }
+#endif // MFEM_USE_MPI
 
 
 
@@ -684,114 +692,4 @@ void output_seismic_properties(const Param& p, int ti,
   }
   else MFEM_ABORT("Not supported spacedim");
 }
-
-
-
-double K_func(double vp, double vs, double rho)
-{
-  return rho * (vp*vp - 4./3.*vs*vs);
-}
-
-double G_func(double vs, double rho)
-{
-  return rho*vs*vs;
-}
-
-double rho_B(double rho_fl, double rho_g, double phi)
-{
-  return rho_g*(1.0-phi) + rho_fl*phi;
-}
-
-double K_fl(double S_w, double K_w, double K_o)
-{
-  return 1.0 / (S_w/K_w + (1.0-S_w)/K_o);
-}
-
-double rho_fl(double S_w, double rho_w, double rho_o)
-{
-  return S_w*rho_w + (1.0-S_w)*rho_o;
-}
-
-//double K_frame(double K_sat, double K_m, double K_fl, double phi)
-//{
-//  double a = phi*K_m/K_fl;
-//  double numer = K_sat*(a+1.0-phi) - K_m;
-//  double denom = a + K_sat/K_m - 1.0 - phi;
-//  return numer/denom;
-//}
-
-double K_frame(double K1, double K2, double F1, double F2)
-{
-  MFEM_VERIFY(F1 >= 0. && F1 <= 1. && F2 >= 0. && F2 <= 1. && (F1+F2-1.) < 1e-12,
-              "F1 or F2 is out of range");
-  double K_Reuss = 1.0 / (F1/K1 + F2/K2);
-  double K_Voigt = F1*K1 + F2*K2;
-  return 0.5 * (K_Reuss + K_Voigt);
-}
-
-double K_sat(double K_frame, double K_m, double K_fl, double phi)
-{
-  double numer = (1.0-K_frame/K_m)*(1.0-K_frame/K_m);
-  double denom = phi/K_fl + (1.0-phi)/K_m - K_frame/K_m/K_m;
-  return K_frame + numer/denom;
-}
-
-double vp_func(double K, double G, double rho)
-{
-  return sqrt((K + 4./3.*G) / rho);
-}
-
-double vs_func(double G, double rho)
-{
-  return sqrt(G/rho);
-}
-
-void Gassmann(const Vector& S, const Param& param, double K_m, double Kframe,
-              double rho_gr, double *phi, double *rho, double *vp, double *vs)
-{
-  const int n_cells = param.get_n_cells();
-  MFEM_VERIFY(S.Size() == n_cells, "Sizes mismatch");
-
-  const double K_w = K_func(VP_W, VS_W, RHO_W); // bulk modulus of water
-  const double K_o = K_func(VP_O, VS_O, RHO_O); // bulk modulus of oil
-
-  double K, G, K_fl_mix, rho_fl_mix, Ksat;
-  double minKsat = DBL_MAX, maxKsat = DBL_MIN;
-
-  for (int i = 0; i < n_cells; ++i)
-  {
-    K = K_func(vp[i], vs[i], rho[i]);
-    G = G_func(vs[i], rho[i]);
-
-    K_fl_mix   = K_fl(S(i), K_w, K_o);
-    rho_fl_mix = rho_fl(S(i), RHO_W, RHO_O);
-
-    Ksat = K_sat(Kframe, K_m, K_fl_mix, phi[i]);
-    minKsat = min(minKsat, Ksat);
-    maxKsat = max(maxKsat, Ksat);
-
-    rho[i] = rho_B(rho_fl_mix, rho_gr, phi[i]);
-    vp[i]  = vp_func(Ksat, G, rho[i]);
-    vs[i]  = vs_func(G, rho[i]);
-  }
-
-  cout << "minKsat = " << minKsat << endl;
-  cout << "maxKsat = " << maxKsat << endl;
-}
-
-double compute_rho(const Vector &x)
-{
-  return 0.;
-}
-
-double compute_vp(const Vector &x)
-{
-  return 0.;
-}
-
-double compute_vs(const Vector &x)
-{
-  return 0.;
-}
-
 

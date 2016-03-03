@@ -5,6 +5,7 @@
 
 #include <sstream>
 #include <stdexcept>
+#include <vector>
 
 namespace mfem
 {
@@ -147,8 +148,14 @@ void compute_in_cells(double sx, double sy, double sz, int nx, int ny, int nz,
 
 void output_scalar(const Param& p, const mfem::GridFunction& P,
                    const std::string& tstr, const std::string& name);
-void output_scalar_cells(const Param& p, mfem::Vector x, std::vector<int> flags,
-                         const std::string& tstr, const std::string& name);
+
+void output_scalar_cells_serial(const Param& p, const mfem::Vector& x,
+                                const std::string& tstr, const std::string& name);
+
+void output_scalar_cells_parallel(const Param& p, mfem::Vector x,
+                                  std::vector<int> flags,
+                                  const std::string& tstr,
+                                  const std::string& name);
 
 void output_vector(const Param& p, const mfem::GridFunction& V,
                    const std::string& tstr, const std::string& name);
@@ -157,25 +164,5 @@ void output_seismic_properties(const Param& p, int ti,
                                const mfem::Vector& rho_array,
                                const mfem::Vector& vp_array,
                                const mfem::Vector& vs_array);
-
-double K_func(double vp, double vs, double rho);
-double G_func(double vs, double rho);
-double vp_func(double K, double G, double rho);
-double vs_func(double G, double rho);
-
-double rho_B(double rho_fl, double rho_g, double phi);
-double K_fl(double S_w, double K_w, double K_o);
-double rho_fl(double S_w, double rho_w, double rho_o);
-//double K_frame(double K_sat, double K_m, double K_fl, double phi);
-double K_frame(double K1, double K2, double F1, double F2);
-double K_sat(double K_frame, double K_m, double K_fl, double phi);
-
-void Gassmann(const mfem::Vector& S, const Param& param, double K_m,
-              double K_frame,double rho_gr, double *phi, double *rho,
-              double *vp, double *vs);
-
-double compute_rho(const mfem::Vector &x);
-double compute_vp(const mfem::Vector &x);
-double compute_vs(const mfem::Vector &x);
 
 #endif // UTILITIES_HPP
