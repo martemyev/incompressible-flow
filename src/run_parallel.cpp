@@ -48,120 +48,6 @@ private:
 
 
 
-//class GassmannRho: public Coefficient
-//{
-//public:
-//  GassmannRho(Coefficient &S, double *rho, const double *phi)
-//    : saturation(S), rho_array(rho), phi_array(phi)
-//  {}
-
-//  virtual ~GassmannRho() {}
-
-//  virtual double Eval(ElementTransformation &T, const IntegrationPoint &ip)
-//  {
-//    const int index = T.Attribute - 1; // use attribute as a cell number
-//    MFEM_ASSERT(index >= 0 && index < n_cells, "Element number (attribute) is "
-//                "out of range: " + d2s(index));
-
-//    const double S   = saturation.Eval(T, ip);
-//    const double phi = phi_array[index];
-
-//    const double rho_fl_mix = rho_fl(S, RHO_W, RHO_O);
-
-//    const double rho = rho_B(rho_fl_mix, RHO_GRAIN, phi);
-//    rho_array[index] = rho;
-
-//    return rho;
-//  }
-
-//private:
-//  Coefficient& saturation;
-//  double *rho_array;
-//  const double *phi_array;
-//};
-
-
-
-//class GassmannVp: public Coefficient
-//{
-//public:
-//  GassmannVp(Coefficient &S, const double *rho, double *vp,
-//             const double *vs, const double *phi)
-//    : saturation(S), rho_array(rho), vp_array(vp), vs_array(vs), phi_array(phi)
-//  {}
-
-//  virtual ~GassmannVp() {}
-
-//  virtual double Eval(ElementTransformation &T, const IntegrationPoint &ip)
-//  {
-//    const int index = T.Attribute - 1; // use attribute as a cell number
-//    MFEM_ASSERT(index >= 0 && index < n_cells, "Element number (attribute) is "
-//                "out of range: " + d2s(index));
-
-//    const double K_w = K_func(VP_W, VS_W, RHO_W); // bulk modulus of water
-//    const double K_o = K_func(VP_O, VS_O, RHO_O); // bulk modulus of oil
-
-//    const double S   = saturation.Eval(T, ip);
-//    const double rho = rho_array[index];
-//    const double vs  = vs_array[index];
-//    const double phi = phi_array[index];
-
-//    const double G = G_func(vs, rho);
-
-//    const double K_fl_mix   = K_fl(S, K_w, K_o);
-
-//    const double Kframe = K_frame(K_MINERAL_MATRIX, K_FLUID_COMPONENT,
-//                                  F_MINERAL_MATRIX, F_FLUID_COMPONENT);
-//    const double Ksat = K_sat(Kframe, K_MINERAL_MATRIX, K_fl_mix, phi);
-
-//    const double vp = vp_func(Ksat, G, rho);
-//    vp_array[index] = vp;
-
-//    return vp;
-//  }
-
-//private:
-//  Coefficient& saturation;
-//  const double *rho_array;
-//  double *vp_array;
-//  const double *vs_array;
-//  const double *phi_array;
-//};
-
-
-
-//class GassmannVs: public Coefficient
-//{
-//public:
-//  GassmannVs(const double *rho, double *vs)
-//    : rho_array(rho), vs_array(vs)
-//  {}
-
-//  virtual ~GassmannVs() {}
-
-//  virtual double Eval(ElementTransformation &T, const IntegrationPoint &ip)
-//  {
-//    const int index = T.Attribute - 1; // use attribute as a cell number
-//    MFEM_ASSERT(index >= 0 && index < n_cells, "Element number (attribute) is "
-//                "out of range: " + d2s(index));
-
-//    const double rho = rho_array[index];
-//    const double vs_old = vs_array[index];
-//    const double G = G_func(vs_old, rho);
-//    const double vs_new = vs_func(G, rho);
-//    vs_array[index] = vs_new;
-
-//    return vs_new;
-//  }
-
-//private:
-//  const double *rho_array;
-//  double *vs_array;
-//};
-
-
-
-
 void run_parallel(int argc, char **argv)
 {
   int num_procs, myid;
@@ -302,7 +188,8 @@ void run_parallel(int argc, char **argv)
   if (myid == 0)
     cout << "Number of global time steps: " << nt << endl;
 
-  for (int ti = 1; ti <= nt; ++ti)
+  int valid_loop = 1;
+  for (int ti = 1; ti <= nt && valid_loop; ++ti)
   {
     ParPressureSolver(block_offsets, block_trueOffsets, *pmesh, p,
                       V_space, P_space, saturation, x, trueX);
@@ -328,12 +215,21 @@ void run_parallel(int argc, char **argv)
                           "saturation");
     }
 
-    cout << "time step " << ti << " is done" << endl;
+    if (myid == 0)
+      cout << "time step " << ti << " is done" << endl;
 
-    if (S.Max() > 1.1)
+    double Smax = S.Max();
+    double totalSmax;
+    MPI_Allreduce(&Smax, &totalSmax, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+    //MPI_Bcast(&totalSmax, 1, MPI_INTEGER, 0, MPI_COMM_WORLD);
+    if (totalSmax > 1.1)
     {
-      cout << "Saturation went up to more than 1.1. The process stops." << endl;
-      break;
+      valid_loop = 0;
+      if (myid == 0)
+      {
+        cout << "Saturation went up to more than 1.1. The process stops."
+             << endl;
+      }
     }
   }
 
