@@ -41,7 +41,7 @@ void run_serial(int argc, char **argv)
   p.init_arrays();
 
   string cmd = "mkdir -p " + string(p.outdir);
-  system(cmd.c_str());
+  MFEM_VERIFY(system(cmd.c_str()) == 0, "Failed to create an output directory");
 
   const int gen_edges = 1;
   Mesh *mesh;

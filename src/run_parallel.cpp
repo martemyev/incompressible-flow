@@ -56,7 +56,7 @@ void run_parallel(int argc, char **argv)
   if (myid == 0)
   {
     string cmd = "mkdir -p " + string(p.outdir);
-    system(cmd.c_str());
+    MFEM_VERIFY(system(cmd.c_str()) == 0, "Failed to create an output directory");
   }
 
   ParMesh *pmesh = nullptr;
