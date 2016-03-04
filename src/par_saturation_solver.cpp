@@ -96,7 +96,7 @@ void ParSaturationSolver(const Param &param, ParGridFunction &S,
 
 //  CWConstCoefficient R(param.R_array, param.n_cells, own_array);
 
-  Vector R_array(param.nx*param.ny);
+  Vector R_array(param.get_n_cells());
   R_array = 0.;
   R_array(0) = 1.;
   PWConstCoefficient R(R_array);

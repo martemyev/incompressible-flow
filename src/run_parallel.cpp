@@ -125,6 +125,7 @@ void run_parallel(int argc, char **argv)
   GridFunctionCoefficient pressure(&P);
 
   const int n_cells = p.get_n_cells();
+
   Vector saturation_in_cells(n_cells);
   std::vector<int> saturation_flags(n_cells, 0);
   ValuesInCells S_vic(saturation, saturation_in_cells, saturation_flags, n_cells);
