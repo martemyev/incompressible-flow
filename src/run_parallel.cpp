@@ -122,15 +122,20 @@ void run_parallel(int argc, char **argv)
   S = 0.0;
   GridFunctionCoefficient saturation(&S);
   VectorGridFunctionCoefficient velocity(&V);
+  GridFunctionCoefficient pressure(&P);
 
   const int n_cells = p.get_n_cells();
   Vector saturation_in_cells(n_cells);
   std::vector<int> saturation_flags(n_cells, 0);
-  ValuesInCells vic(saturation, saturation_in_cells, saturation_flags, n_cells);
+  ValuesInCells S_vic(saturation, saturation_in_cells, saturation_flags, n_cells);
+
+  Vector pressure_in_cells(n_cells);
+  std::vector<int> pressure_flags(n_cells, 0);
+  ValuesInCells P_vic(pressure, pressure_in_cells, pressure_flags, n_cells);
 
   if (p.seis_steps > 0)
   {
-    S.ProjectCoefficient(vic);
+    S.ProjectCoefficient(S_vic);
     const std::string tstr = d2s(0, 0, 0, 0, 6); // ti = 0
     output_scalar_cells_parallel(p, saturation_in_cells, saturation_flags, tstr,
                                  "saturation");
@@ -167,12 +172,17 @@ void run_parallel(int argc, char **argv)
       visit_global.SetCycle(ti);
       visit_global.SetTime(ti*p.dt_global);
       visit_global.Save();
+
+      P.ProjectCoefficient(P_vic);
+      const std::string tstr = d2s(ti, 0, 0, 0, 6);
+      output_scalar_cells_parallel(p, pressure_in_cells, pressure_flags, tstr,
+                                   "pressure");
     }
 
     // update seismic properties
     if (p.seis_steps > 0 && ti % p.seis_steps == 0)
     {
-      S.ProjectCoefficient(vic);
+      S.ProjectCoefficient(S_vic);
       const std::string tstr = d2s(ti, 0, 0, 0, 6);
       output_scalar_cells_parallel(p, saturation_in_cells, saturation_flags, tstr,
                                    "saturation");
@@ -181,17 +191,29 @@ void run_parallel(int argc, char **argv)
     if (myid == 0)
       cout << "time step " << ti << " is done" << endl;
 
-    double Smax = S.Max();
-    double totalSmax;
-    MPI_Allreduce(&Smax, &totalSmax, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
-    //MPI_Bcast(&totalSmax, 1, MPI_INTEGER, 0, MPI_COMM_WORLD);
-    if (totalSmax > 1.1)
+    int nNonfinite = S.CheckFinite(); // number of nonfinite values (NaN, Inf)
+    MPI_Allreduce(MPI_IN_PLACE, &nNonfinite, 1, MPI_INTEGER, MPI_SUM, MPI_COMM_WORLD);
+    if (nNonfinite > 0)
     {
       valid_loop = 0;
       if (myid == 0)
       {
-        cout << "Saturation went up to more than 1.1. The process stops."
+        cout << "\n\n\tSaturation has nonfinite values. The process stops.\n"
              << endl;
+      }
+    }
+    else
+    {
+      double Smax = S.Max();
+      MPI_Allreduce(MPI_IN_PLACE, &Smax, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+      if (Smax > 1.1)
+      {
+        valid_loop = 0;
+        if (myid == 0)
+        {
+          cout << "\n\n\tSaturation went up to more than 1.1. The process stops.\n"
+               << endl;
+        }
       }
     }
   }

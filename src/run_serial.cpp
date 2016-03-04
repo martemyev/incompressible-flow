@@ -133,9 +133,15 @@ void run_serial(int argc, char **argv)
 
     cout << "time step " << ti << " is done" << endl;
 
+    if (S.CheckFinite() > 0)
+    {
+      cout << "\n\n\tSaturation has nonfinite values. The process stops.\n" << endl;
+      break;
+    }
+
     if (S.Max() > 1.1)
     {
-      cout << "Saturation went up to more than 1.1. The process stops." << endl;
+      cout << "\n\n\tSaturation went up to more than 1.1. The process stops.\n" << endl;
       break;
     }
   }
