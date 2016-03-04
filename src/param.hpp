@@ -54,6 +54,8 @@ struct Param
 
   bool two_phase_flow; ///< Simulate two phase flow (otherwise it's single phase)
 
+  int ode_solver_type; ///< Type of the ODE solver for the saturation
+
   DarcySolverParam darcy; ///< Parameters of a Darcy solver
 
   bool info; ///< Whether or not print an info about the program

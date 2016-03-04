@@ -61,6 +61,7 @@ Param::Param()
   , outdir("output")
   , extra("")
   , two_phase_flow(false)
+  , ode_solver_type(1) // Forward Euler
   , info(false)
 { }
 
@@ -130,6 +131,7 @@ void Param::add_options(OptionsParser &args)
   args.AddOption(&two_phase_flow, "-two-phase", "--two-phase-flow",
                  "-single-phase", "--single-phase-flow",
                  "Simulate two phase flow (otherwise it's single phase)");
+  args.AddOption(&ode_solver_type, "-ode", "--ode-solver-type", "ODE solver for saturation (1=Forward Euler, 2=RK2, 3=RK3, 4=RK4, 6=RK6 ");
 
   darcy.add_options(args);
 

@@ -116,15 +116,16 @@ void ParSaturationSolver(const Param &param, ParGridFunction &S,
   HypreParVector *B = b.ParallelAssemble();
 
   ODESolver *ode_solver = NULL;
-  int ode_solver_type = 1;
-  switch (ode_solver_type)
+  switch (param.ode_solver_type)
   {
     case 1: ode_solver = new ForwardEulerSolver; break;
     case 2: ode_solver = new RK2Solver(1.0); break;
     case 3: ode_solver = new RK3SSPSolver; break;
     case 4: ode_solver = new RK4Solver; break;
     case 6: ode_solver = new RK6Solver; break;
-    default: throw runtime_error("AAA!");
+    default:
+      throw runtime_error("Uknown ODE solver: type " + 
+                          d2s(param.ode_solver_type));
   }
 
   HypreParVector *SV = S.GetTrueDofs();
