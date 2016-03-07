@@ -134,7 +134,7 @@ void run_parallel(int argc, char **argv)
   std::vector<int> pressure_flags(n_cells, 0);
   ValuesInCells P_vic(pressure, pressure_in_cells, pressure_flags, n_cells);
 
-  if (p.seis_steps > 0)
+  if (p.saturation_steps > 0)
   {
     S.ProjectCoefficient(S_vic);
     const std::string tstr = d2s(0, 0, 0, 0, 6); // ti = 0
@@ -185,8 +185,7 @@ void run_parallel(int argc, char **argv)
       pressure_flags.resize(n_cells, 0);
     }
 
-    // update seismic properties
-    if (p.seis_steps > 0 && ti % p.seis_steps == 0)
+    if (p.saturation_steps > 0 && ti % p.saturation_steps == 0)
     {
       MPI_Barrier(MPI_COMM_WORLD);
       S.ProjectCoefficient(S_vic);

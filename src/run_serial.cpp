@@ -90,7 +90,7 @@ void run_serial(int argc, char **argv)
   std::vector<int> saturation_flags(n_cells, 0);
   ValuesInCells vic(saturation, saturation_in_cells, saturation_flags, n_cells);
 
-  if (p.seis_steps > 0)
+  if (p.saturation_steps > 0)
   {
     S.ProjectCoefficient(vic);
     const std::string tstr = d2s(0, 0, 0, 0, 6); // ti = 0
@@ -119,14 +119,8 @@ void run_serial(int argc, char **argv)
       visit.Save();
     }
 
-    if (p.seis_steps > 0 && ti % p.seis_steps == 0) // update seismic properties
+    if (p.saturation_steps > 0 && ti % p.saturation_steps == 0)
     {
-//      Vector S_w(n_cells); // water saturation values in each cell
-//      if (p.spacedim == 2)
-//        compute_in_cells(p.sx, p.sy, p.nx, p.ny, *mesh, S, S_w);
-//      else if (p.spacedim == 3)
-//        compute_in_cells(p.sx, p.sy, p.sz, p.nx, p.ny, p.nz, *mesh, S, S_w);
-//      else MFEM_ABORT("Not supported spacedim");
       S.ProjectCoefficient(vic);
       const std::string tstr = d2s(ti, 0, 0, 0, 6);
       output_scalar_cells_serial(p, saturation_in_cells, tstr, "saturation");

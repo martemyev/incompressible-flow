@@ -41,7 +41,7 @@ struct Param
   double dt_local; ///< Time step for saturation (local time loop)
   int vis_steps_global; ///< Visualization step for pressure solver (global)
   int vis_steps_local; ///< Visualization step for saturation solver (local)
-  int seis_steps; ///< Output step for seismic media properties (based on Gassmann)
+  int saturation_steps; ///< Output step for saturation as a binary file
 
   double K; ///< Constant permeability
   double phi; ///< Constant porosity

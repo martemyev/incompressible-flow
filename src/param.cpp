@@ -53,7 +53,7 @@ Param::Param()
   , t_final(200), dt_global(100), dt_local(1)
   , vis_steps_global(1)
   , vis_steps_local(-1) // negative means no output
-  , seis_steps(1)
+  , saturation_steps(1)
   , K(1.0)              // permeability
   , phi(1.0)            // porosity
   , K_file("no-file")
@@ -121,7 +121,7 @@ void Param::add_options(OptionsParser &args)
   args.AddOption(&dt_local, "-dtl", "--time-step-local", "Time step for saturation solver");
   args.AddOption(&vis_steps_global, "-vsg", "--vis-steps-global", "Visualize every n-th timestep in the pressure time loop (<=0 no output)");
   args.AddOption(&vis_steps_local, "-vsl", "--vis-steps-local", "Visualize every n-th timestep in the saturation time loops (<=0 no output)");
-  args.AddOption(&seis_steps, "-ss", "--seis-steps", "Compute seismic properties with Gassmann and output them every n-th global timestep (<=0 no output)");
+  args.AddOption(&saturation_steps, "-ss", "--saturation-steps", "Output saturation solution as a binary file every n-th global timestep (<=0 no output)");
   args.AddOption(&K, "-K", "--K", "Constant permeability");
   args.AddOption(&phi, "-phi", "--phi", "Constant porosity");
   args.AddOption(&K_file, "-K-file", "--K-file", "Name of a binary file (single precision) for heterogeneous permeability");
