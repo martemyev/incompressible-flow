@@ -165,4 +165,6 @@ void output_seismic_properties(const Param& p, int ti,
                                const mfem::Vector& vp_array,
                                const mfem::Vector& vs_array);
 
+void checkMPI(int status);
+
 #endif // UTILITIES_HPP

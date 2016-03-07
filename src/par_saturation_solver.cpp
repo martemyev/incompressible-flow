@@ -136,11 +136,17 @@ void ParSaturationSolver(const Param &param, ParGridFunction &S,
   double t = 0.0;
   double dt = param.dt_local;
 
+  int SV_nonfinite = SV->CheckFinite();
+  double SV_max = SV->Max();
+  MPI_Allreduce(MPI_IN_PLACE, &SV_nonfinite, 1, MPI_INTEGER, MPI_SUM, MPI_COMM_WORLD);
+  MPI_Allreduce(MPI_IN_PLACE, &SV_max, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+
   if (myid == 0)
   {
     std::cout << "t_final = " << global_dt << std::endl;
     std::cout << "dt      = " << dt << std::endl;
-    std::cout << "SV norm = " << SV->Norml2() << std::endl;
+    std::cout << "SV nonfi= " << SV_nonfinite << std::endl;
+    std::cout << "SV max  = " << SV_max << std::endl;
     std::cout << "t       = " << t << std::endl;
   }
 

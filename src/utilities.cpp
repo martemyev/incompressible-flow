@@ -588,9 +588,9 @@ void output_scalar_cells_parallel(const Param& p, Vector x,
                                   std::vector<int> flags, const string& tstr,
                                   const string& name)
 {
-  int num_procs, myid;
-  MPI_Comm_rank(MPI_COMM_WORLD, &myid);
-  MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
+  int num_procs, myid, ierr;
+  ierr = MPI_Comm_rank(MPI_COMM_WORLD, &myid); checkMPI(ierr);
+  ierr = MPI_Comm_size(MPI_COMM_WORLD, &num_procs); checkMPI(ierr);
   const int n_cells = p.get_n_cells();
   const int tag_values = 11;
   const int tag_flags = 12;
@@ -601,10 +601,10 @@ void output_scalar_cells_parallel(const Param& p, Vector x,
     MPI_Status status;
     for (int rank = 1; rank < num_procs; ++rank)
     {
-      MPI_Recv(Xvalues, n_cells, MPI_DOUBLE, MPI_ANY_SOURCE, tag_values,
-               MPI_COMM_WORLD, &status);
-      MPI_Recv(Xflags, n_cells, MPI_INTEGER, MPI_ANY_SOURCE, tag_flags,
-               MPI_COMM_WORLD, &status);
+      ierr = MPI_Recv(Xvalues, n_cells, MPI_DOUBLE, MPI_ANY_SOURCE, tag_values,
+                      MPI_COMM_WORLD, &status); checkMPI(ierr);
+      ierr = MPI_Recv(Xflags, n_cells, MPI_INTEGER, MPI_ANY_SOURCE, tag_flags,
+                      MPI_COMM_WORLD, &status); checkMPI(ierr);
       for (int el = 0; el < n_cells; ++el)
       {
         if (Xflags[el])
@@ -613,14 +613,17 @@ void output_scalar_cells_parallel(const Param& p, Vector x,
     }
     delete[] Xflags;
     delete[] Xvalues;
-
-    output_scalar_cells_serial(p, x, tstr, name);
   }
   else
   {
-    MPI_Send(x.GetData(), n_cells, MPI_DOUBLE, 0, tag_values, MPI_COMM_WORLD);
-    MPI_Send(&flags[0], n_cells, MPI_INTEGER, 0, tag_flags, MPI_COMM_WORLD);
+    ierr = MPI_Send(x.GetData(), n_cells, MPI_DOUBLE, 0, tag_values,
+                    MPI_COMM_WORLD); checkMPI(ierr);
+    ierr = MPI_Send(&flags[0], n_cells, MPI_INTEGER, 0, tag_flags,
+                    MPI_COMM_WORLD); checkMPI(ierr);
   }
+
+  if (myid == 0)
+    output_scalar_cells_serial(p, x, tstr, name);
 }
 #endif // MFEM_USE_MPI
 
@@ -693,3 +696,9 @@ void output_seismic_properties(const Param& p, int ti,
   else MFEM_ABORT("Not supported spacedim");
 }
 
+
+
+void checkMPI(int status)
+{
+  MFEM_VERIFY(status == MPI_SUCCESS, "Unsuccessfull MPI function");
+}

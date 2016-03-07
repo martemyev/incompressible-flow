@@ -140,6 +140,8 @@ void run_parallel(int argc, char **argv)
     const std::string tstr = d2s(0, 0, 0, 0, 6); // ti = 0
     output_scalar_cells_parallel(p, saturation_in_cells, saturation_flags, tstr,
                                  "saturation");
+    saturation_flags.clear();
+    saturation_flags.resize(n_cells, 0);
   }
 
   VisItDataCollection visit_global("inc-flow-parallel-global", pmesh, p.outdir);
@@ -174,19 +176,25 @@ void run_parallel(int argc, char **argv)
       visit_global.SetTime(ti*p.dt_global);
       visit_global.Save();
 
+      MPI_Barrier(MPI_COMM_WORLD);
       P.ProjectCoefficient(P_vic);
       const std::string tstr = d2s(ti, 0, 0, 0, 6);
       output_scalar_cells_parallel(p, pressure_in_cells, pressure_flags, tstr,
                                    "pressure");
+      pressure_flags.clear();
+      pressure_flags.resize(n_cells, 0);
     }
 
     // update seismic properties
     if (p.seis_steps > 0 && ti % p.seis_steps == 0)
     {
+      MPI_Barrier(MPI_COMM_WORLD);
       S.ProjectCoefficient(S_vic);
       const std::string tstr = d2s(ti, 0, 0, 0, 6);
       output_scalar_cells_parallel(p, saturation_in_cells, saturation_flags, tstr,
                                    "saturation");
+      saturation_flags.clear();
+      saturation_flags.resize(n_cells, 0);
     }
 
     if (myid == 0)
