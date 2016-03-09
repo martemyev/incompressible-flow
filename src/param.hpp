@@ -205,27 +205,47 @@ private:
 
   double eval(const mfem::Vector& point)
   {
+    if (spacedim == 2)
+      return eval2D(point);
+    else if (spacedim == 3)
+      return eval3D(point);
+    else throw std::runtime_error("Unknown spacedim");
+  }
+
+  double eval2D(const mfem::Vector& point)
+  {
+    const double x = point(0);
+    const double y = point(1);
+
+    if (fabs(x-injection.center(0)) <= injection.radius &&
+        fabs(y-injection.center(1)) <= injection.radius)
+      return inflow;
+
+    if (fabs(x-production.center(0)) <= production.radius &&
+        fabs(y-production.center(1)) <= production.radius)
+      return outflow;
+
+    return 0.;
+  }
+
+  double eval3D(const mfem::Vector& point)
+  {
     const double x = point(0);
     const double y = point(1);
     const double z = point(2);
+
     if (fabs(x-injection.center(0)) <= injection.radius &&
-        fabs(y-injection.center(1)) <= injection.radius)
-    {
-      if (spacedim == 2 ||
-          (spacedim == 3 &&
-           z >= injection.center(2) &&
-           z <= injection.center(2)+injection.height))
-        return inflow;
-    }
+        fabs(z-injection.center(2)) <= injection.radius &&
+        y >= injection.center(1) &&
+        y <= injection.center(1)+injection.height)
+      return inflow;
+
     if (fabs(x-production.center(0)) <= production.radius &&
-        fabs(y-production.center(1)) <= production.radius)
-    {
-      if (spacedim == 2 ||
-          (spacedim == 3 &&
-           z >= production.center(2) &&
-           z <= production.center(2)+production.height))
-        return outflow;
-    }
+        fabs(z-production.center(2)) <= production.radius &&
+        y >= production.center(1) &&
+        y <= production.center(1)+production.height)
+      return outflow;
+
     return 0.;
   }
 };
@@ -257,18 +277,37 @@ private:
 
   double eval(const mfem::Vector& point)
   {
+    if (spacedim == 2)
+      return eval2D(point);
+    else if (spacedim == 3)
+      return eval3D(point);
+    else throw std::runtime_error("Unknown spacedim");
+  }
+
+  double eval2D(const mfem::Vector& point)
+  {
+    const double x = point(0);
+    const double y = point(1);
+
+    if (fabs(x-injection.center(0)) <= injection.radius &&
+        fabs(y-injection.center(1)) <= injection.radius)
+      return saturation_source;
+
+    return 0.;
+  }
+
+  double eval3D(const mfem::Vector& point)
+  {
     const double x = point(0);
     const double y = point(1);
     const double z = point(2);
+
     if (fabs(x-injection.center(0)) <= injection.radius &&
-        fabs(y-injection.center(1)) <= injection.radius)
-    {
-      if (spacedim == 2 ||
-          (spacedim == 3 &&
-           z >= injection.center(2) &&
-           z <= injection.center(2)+injection.height))
-        return saturation_source;
-    }
+        fabs(z-injection.center(2)) <= injection.radius &&
+        y >= injection.center(1) &&
+        y <= injection.center(1)+injection.height)
+      return saturation_source;
+
     return 0.;
   }
 };
