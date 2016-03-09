@@ -40,31 +40,11 @@ void DarcySolverParam::add_options(OptionsParser &args)
 
 
 
-Well::Well(const std::string &prefix)
+Well::Well()
   : center(0., 0., 0.)
   , radius(1.)
   , height(1.)
-  , option_prefix(prefix)
 {}
-
-void Well::add_options(OptionsParser &args)
-{
-  std::string _short = "-" + option_prefix + "-xcen";
-  std::string _long  = "--" + option_prefix + "-center-x";
-  args.AddOption(&center(0), _short.c_str(), _long.c_str(), "x-coordinate of center of well");
-  _short = "-" + option_prefix + "-ycen";
-  _long  = "--" + option_prefix + "-center-y";
-  args.AddOption(&center(1), _short.c_str(), _long.c_str(), "y-coordinate of center of well");
-  _short = "-" + option_prefix + "-zcen";
-  _long  = "--" + option_prefix + "-center-z";
-  args.AddOption(&center(2), _short.c_str(), _long.c_str(), "z-coordinate of center of well");
-  _short = "-" + option_prefix + "-r";
-  _long  = "--" + option_prefix + "-radius";
-  args.AddOption(&radius, _short.c_str(), _long.c_str(), "radius of well");
-  _short = "-" + option_prefix + "-h";
-  _long  = "--" + option_prefix + "-height";
-  args.AddOption(&height, _short.c_str(), _long.c_str(), "height of well");
-}
 
 
 
@@ -88,8 +68,8 @@ Param::Param()
   , extra("")
   , two_phase_flow(false)
   , ode_solver_type(1) // Forward Euler
-  , injection("inj")
-  , production("pro")
+  , injection()
+  , production()
   , inflow(1.)
   , outflow(-1.)
   , saturation_source(1.)
@@ -149,8 +129,17 @@ void Param::add_options(OptionsParser &args)
                  "Simulate two phase flow (otherwise it's single phase)");
   args.AddOption(&ode_solver_type, "-ode", "--ode-solver-type", "ODE solver for saturation (1=Forward Euler, 2=RK2, 3=RK3, 4=RK4, 6=RK6)");
 
-  injection.add_options(args);
-  production.add_options(args);
+  args.AddOption(&injection.center(0), "-inj-xcen", "--inj-center-x", "x-coordinate of center of well");
+  args.AddOption(&injection.center(1), "-inj-ycen", "--inj-center-y", "y-coordinate of center of well");
+  args.AddOption(&injection.center(2), "-inj-zcen", "--inj-center-z", "z-coordinate of center of well");
+  args.AddOption(&injection.radius, "-inj-r", "--inj-radius", "radius of well");
+  args.AddOption(&injection.height, "-inj-h", "--inj-height", "height of well");
+
+  args.AddOption(&production.center(0), "-pro-xcen", "--pro-center-x", "x-coordinate of center of well");
+  args.AddOption(&production.center(1), "-pro-ycen", "--pro-center-y", "y-coordinate of center of well");
+  args.AddOption(&production.center(2), "-pro-zcen", "--pro-center-z", "z-coordinate of center of well");
+  args.AddOption(&production.radius, "-pro-r", "--pro-radius", "radius of well");
+  args.AddOption(&production.height, "-pro-h", "--pro-height", "height of well");
 
   args.AddOption(&inflow, "-inflow", "--inflow", "Inflow value (in injection well)");
   args.AddOption(&outflow, "-outflow", "--outflow", "Outflow value (in production well)");

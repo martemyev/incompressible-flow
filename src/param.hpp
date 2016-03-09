@@ -34,8 +34,7 @@ struct Well
   double height;
   std::string option_prefix; // to distinguish different wells via options
 
-  Well(const std::string &prefix);
-  void add_options(mfem::OptionsParser& args);
+  Well();
 };
 
 
