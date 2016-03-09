@@ -23,16 +23,29 @@ struct DarcySolverParam
 };
 
 
+
+/**
+ * Wells are respresented by cylinders (circles in 2D).
+ */
+struct Well
+{
+  mfem::Vertex center;
+  double radius;
+  double height;
+  std::string option_prefix; // to distinguish different wells via options
+
+  Well(const std::string &prefix);
+  void add_options(mfem::OptionsParser& args);
+};
+
+
 struct Param
 {
   int spacedim; ///< Spatial dimension of the problem (2 for 2D, 3 for 3D)
   int nx, ny, nz; ///< Number of cells of a Cartesian grid along each direction
   double sx, sy, sz; ///< Size of computational domain in each direction
   double *K_array; ///< Permeability array (cell-wise constant - one value per cell)
-  double *Q_array; ///< Pressure source defined as an array (injection and
-                   ///< production wells - inflow and outflow)
   double *phi_array; ///< Array of porosity values (cell-wise constant)
-  double *R_array; ///< Saturation source defined as an array (cell-wise constant)
 
   int order_v, order_p, order_s; ///< Orders of finite elements for approximation
                                  ///< of (v)elocity, (p)ressure and (s)aturation
@@ -55,6 +68,9 @@ struct Param
   bool two_phase_flow; ///< Simulate two phase flow (otherwise it's single phase)
 
   int ode_solver_type; ///< Type of the ODE solver for the saturation
+
+  Well injection, production;
+  double inflow, outflow, saturation_source;
 
   DarcySolverParam darcy; ///< Parameters of a Darcy solver
 
@@ -158,6 +174,106 @@ protected:
   bool two_phase_flow;
   bool own_array;
 };
+
+
+
+class WellFunctionCoefficient : public mfem::Coefficient
+{
+public:
+  WellFunctionCoefficient(const Well& inject, const Well& product, double in,
+                          double out, int dim)
+    : injection(inject), production(product), inflow(in), outflow(out),
+      spacedim(dim)
+  {}
+
+  virtual ~WellFunctionCoefficient() {}
+
+  virtual double Eval(mfem::ElementTransformation &T,
+                      const mfem::IntegrationPoint &ip)
+  {
+    double x[3];
+    mfem::Vector transip(x, 3);
+    T.Transform(ip, transip);
+    return eval(transip);
+  }
+
+private:
+  const Well& injection;
+  const Well& production;
+  double inflow;
+  double outflow;
+  int spacedim;
+
+  double eval(const mfem::Vector& point)
+  {
+    const double x = point(0);
+    const double y = point(1);
+    const double z = point(2);
+    if (fabs(x-injection.center(0)) <= injection.radius &&
+        fabs(y-injection.center(1)) <= injection.radius)
+    {
+      if (spacedim == 2 ||
+          (spacedim == 3 &&
+           z >= injection.center(2) &&
+           z <= injection.center(2)+injection.height))
+        return inflow;
+    }
+    if (fabs(x-production.center(0)) <= production.radius &&
+        fabs(y-production.center(1)) <= production.radius)
+    {
+      if (spacedim == 2 ||
+          (spacedim == 3 &&
+           z >= production.center(2) &&
+           z <= production.center(2)+production.height))
+        return outflow;
+    }
+    return 0.;
+  }
+};
+
+
+
+class SaturationSourceCoefficient : public mfem::Coefficient
+{
+public:
+  SaturationSourceCoefficient(const Well& inject, double source, int dim)
+    : injection(inject), saturation_source(source), spacedim(dim)
+  {}
+
+  virtual ~SaturationSourceCoefficient() {}
+
+  virtual double Eval(mfem::ElementTransformation &T,
+                      const mfem::IntegrationPoint &ip)
+  {
+    double x[3];
+    mfem::Vector transip(x, 3);
+    T.Transform(ip, transip);
+    return eval(transip);
+  }
+
+private:
+  const Well& injection;
+  double saturation_source;
+  int spacedim;
+
+  double eval(const mfem::Vector& point)
+  {
+    const double x = point(0);
+    const double y = point(1);
+    const double z = point(2);
+    if (fabs(x-injection.center(0)) <= injection.radius &&
+        fabs(y-injection.center(1)) <= injection.radius)
+    {
+      if (spacedim == 2 ||
+          (spacedim == 3 &&
+           z >= injection.center(2) &&
+           z <= injection.center(2)+injection.height))
+        return saturation_source;
+    }
+    return 0.;
+  }
+};
+
 
 
 

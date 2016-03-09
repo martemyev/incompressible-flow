@@ -40,15 +40,41 @@ void DarcySolverParam::add_options(OptionsParser &args)
 
 
 
+Well::Well(const std::string &prefix)
+  : center(0., 0., 0.)
+  , radius(1.)
+  , height(1.)
+  , option_prefix(prefix)
+{}
+
+void Well::add_options(OptionsParser &args)
+{
+  std::string _short = "-" + option_prefix + "-xcen";
+  std::string _long  = "--" + option_prefix + "-center-x";
+  args.AddOption(&center(0), _short.c_str(), _long.c_str(), "x-coordinate of center of well");
+  _short = "-" + option_prefix + "-ycen";
+  _long  = "--" + option_prefix + "-center-y";
+  args.AddOption(&center(1), _short.c_str(), _long.c_str(), "y-coordinate of center of well");
+  _short = "-" + option_prefix + "-zcen";
+  _long  = "--" + option_prefix + "-center-z";
+  args.AddOption(&center(2), _short.c_str(), _long.c_str(), "z-coordinate of center of well");
+  _short = "-" + option_prefix + "-r";
+  _long  = "--" + option_prefix + "-radius";
+  args.AddOption(&radius, _short.c_str(), _long.c_str(), "radius of well");
+  _short = "-" + option_prefix + "-h";
+  _long  = "--" + option_prefix + "-height";
+  args.AddOption(&height, _short.c_str(), _long.c_str(), "height of well");
+}
+
+
+
 
 Param::Param()
   : spacedim(2)
   , nx(100), ny(100), nz(100)
   , sx(100.), sy(100.), sz(100.)
   , K_array(nullptr)
-  , Q_array(nullptr)
   , phi_array(nullptr)
-  , R_array(nullptr)
   , order_v(1), order_p(1), order_s(0)
   , t_final(200), dt_global(100), dt_local(1)
   , vis_steps_global(1)
@@ -62,14 +88,17 @@ Param::Param()
   , extra("")
   , two_phase_flow(false)
   , ode_solver_type(1) // Forward Euler
+  , injection("inj")
+  , production("pro")
+  , inflow(1.)
+  , outflow(-1.)
+  , saturation_source(1.)
   , info(false)
 { }
 
 Param::~Param()
 {
-  delete[] R_array;
   delete[] phi_array;
-  delete[] Q_array;
   delete[] K_array;
 }
 
@@ -78,9 +107,7 @@ void Param::init_arrays()
   const int n_cells = get_n_cells();
 
   K_array   = new double[n_cells];
-  Q_array   = new double[n_cells];
   phi_array = new double[n_cells];
-  R_array   = new double[n_cells];
 
   if (!strcmp(K_file, "no-file"))
     for (int i = 0; i < n_cells; ++i) K_array[i] = K;
@@ -91,17 +118,6 @@ void Param::init_arrays()
     for (int i = 0; i < n_cells; ++i) phi_array[i] = phi;
   else
     read_binary(phi_file, n_cells, phi_array);
-
-  // sources and sinks
-  for (int i = 0; i < n_cells; ++i)
-  {
-    Q_array[i]   = 0.0;
-    R_array[i]   = 0.0;
-  }
-
-  Q_array[0]         =  1.0; // injection well
-  Q_array[n_cells-1] = -1.0; // production well
-  R_array[0]         =  1.0; // source of saturation
 }
 
 void Param::add_options(OptionsParser &args)
@@ -131,7 +147,14 @@ void Param::add_options(OptionsParser &args)
   args.AddOption(&two_phase_flow, "-two-phase", "--two-phase-flow",
                  "-single-phase", "--single-phase-flow",
                  "Simulate two phase flow (otherwise it's single phase)");
-  args.AddOption(&ode_solver_type, "-ode", "--ode-solver-type", "ODE solver for saturation (1=Forward Euler, 2=RK2, 3=RK3, 4=RK4, 6=RK6 ");
+  args.AddOption(&ode_solver_type, "-ode", "--ode-solver-type", "ODE solver for saturation (1=Forward Euler, 2=RK2, 3=RK3, 4=RK4, 6=RK6)");
+
+  injection.add_options(args);
+  production.add_options(args);
+
+  args.AddOption(&inflow, "-inflow", "--inflow", "Inflow value (in injection well)");
+  args.AddOption(&outflow, "-outflow", "--outflow", "Outflow value (in production well)");
+  args.AddOption(&saturation_source, "-sat-source", "--saturation-source", "Value of saturation source");
 
   darcy.add_options(args);
 

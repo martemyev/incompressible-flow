@@ -165,6 +165,8 @@ void output_seismic_properties(const Param& p, int ti,
                                const mfem::Vector& vp_array,
                                const mfem::Vector& vs_array);
 
+#if defined(MFEM_USE_MPI)
 void checkMPI(int status);
+#endif
 
 #endif // UTILITIES_HPP

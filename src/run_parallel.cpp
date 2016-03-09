@@ -144,12 +144,14 @@ void run_parallel(int argc, char **argv)
     saturation_flags.resize(n_cells, 0);
   }
 
-  VisItDataCollection visit_global("inc-flow-parallel-global", pmesh, p.outdir);
+  VisItDataCollection visit_global("inc-flow-parallel-global", pmesh);
+  visit_global.SetPrefixPath(p.outdir);
   visit_global.RegisterField("pressure", &P);
   visit_global.RegisterField("velocity", &V);
   visit_global.RegisterField("saturation", &S);
 
-  VisItDataCollection visit_local("inc-flow-parallel-local", pmesh, p.outdir);
+  VisItDataCollection visit_local("inc-flow-parallel-local", pmesh);
+  visit_local.SetPrefixPath(p.outdir);
   visit_local.RegisterField("saturation", &S);
 
   StopWatch global_time_loop;

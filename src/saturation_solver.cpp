@@ -39,7 +39,8 @@ void SaturationSolver(const Param &param, GridFunction &S,
 //  k.AddBdrFaceIntegrator(
 //     new TransposeIntegrator(new DGTraceIntegrator(velocity, 1.0, -0.5)));
 
-  CWConstCoefficient R(param.R_array, n_cells, own_array);
+  SaturationSourceCoefficient R(param.injection, param.saturation_source,
+                                param.spacedim);
   LinearForm b(&S_space);
   b.AddDomainIntegrator(new DomainLFIntegrator(R));
 

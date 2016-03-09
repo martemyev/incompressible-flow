@@ -94,12 +94,8 @@ void ParSaturationSolver(const Param &param, ParGridFunction &S,
   k.AddDomainIntegrator(new TransposeIntegrator(new ConvectionIntegrator(velocity, 1.0)));
   k.AddInteriorFaceIntegrator(new DGTraceIntegrator(velocity, -1.0, -0.5));
 
-//  CWConstCoefficient R(param.R_array, param.n_cells, own_array);
-
-  Vector R_array(param.get_n_cells());
-  R_array = 0.;
-  R_array(0) = 1.;
-  PWConstCoefficient R(R_array);
+  SaturationSourceCoefficient R(param.injection, param.saturation_source,
+                                param.spacedim);
 
   ParLinearForm b(&S_space);
   b.AddDomainIntegrator(new DomainLFIntegrator(R));

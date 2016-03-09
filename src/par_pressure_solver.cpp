@@ -4,14 +4,6 @@
 using namespace std;
 using namespace mfem;
 
-double q_func(Vector& x)
-{
-  const double lim = 0.2;
-  if (x(0) < lim && x(1) < lim) return 1.0;
-  if (x(0) > 1-lim && x(1) > 1-lim) return -1.0;
-  return 0.0;
-}
-
 #if defined(MFEM_USE_MPI) // parallel mode
 void ParPressureSolver(const Array<int>& block_offsets,
                        const Array<int>& block_trueOffsets,
@@ -33,9 +25,8 @@ void ParPressureSolver(const Array<int>& block_offsets,
   const bool own_array = false;
   CWCoefficient K(saturation, MU_W, MU_O, param.K_array, n_cells,
                   param.two_phase_flow, own_array);
-  CWConstCoefficient Q(param.Q_array, n_cells, own_array);
-//  ConstantCoefficient K(1.0);
-//  FunctionCoefficient Q(q_func);
+  WellFunctionCoefficient Q(param.injection, param.production,
+                            param.inflow, param.outflow, param.spacedim);
 
   BlockVector rhs(block_offsets), trueRhs(block_trueOffsets);
 

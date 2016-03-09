@@ -97,7 +97,8 @@ void run_serial(int argc, char **argv)
     output_scalar_cells_serial(p, saturation_in_cells, tstr, "saturation");
   }
 
-  VisItDataCollection visit("inc-flow-serial", mesh, p.outdir);
+  VisItDataCollection visit("inc-flow-serial", mesh);
+  visit.SetPrefixPath(p.outdir);
   visit.RegisterField("pressure", &P);
   visit.RegisterField("saturation", &S);
   visit.RegisterField("velocity", &V);

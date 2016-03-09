@@ -698,7 +698,9 @@ void output_seismic_properties(const Param& p, int ti,
 
 
 
+#if defined(MFEM_USE_MPI)
 void checkMPI(int status)
 {
   MFEM_VERIFY(status == MPI_SUCCESS, "Unsuccessfull MPI function");
 }
+#endif // MFEM_USE_MPI

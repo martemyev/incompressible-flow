@@ -20,7 +20,8 @@ void PressureSolver(const Array<int> &block_offsets,
   const bool own_array = false;
   CWCoefficient K(saturation, MU_W, MU_O, param.K_array, n_cells,
                   param.two_phase_flow, own_array);
-  CWConstCoefficient Q(param.Q_array, n_cells, own_array);
+  WellFunctionCoefficient Q(param.injection, param.production,
+                            param.inflow, param.outflow, param.spacedim);
 
   BlockVector rhs(block_offsets);
 
