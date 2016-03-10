@@ -23,8 +23,17 @@ void ParPressureSolver(const Array<int>& block_offsets,
   const int n_cells = param.get_n_cells();
 
   const bool own_array = false;
-  CWCoefficient K(saturation, MU_W, MU_O, param.K_array, n_cells,
-                  param.two_phase_flow, own_array);
+  CWVectorCoefficient *K;
+  if (param.spacedim == 2)
+    K = new CWVectorCoefficient(saturation, MU_W, MU_O, param.K_array_x,
+                                param.K_array_y, n_cells, param.two_phase_flow,
+                                own_array);
+  else if (param.spacedim == 3)
+    K = new CWVectorCoefficient(saturation, MU_W, MU_O, param.K_array_x,
+                                param.K_array_y, param.K_array_z, n_cells,
+                                param.two_phase_flow, own_array);
+  else MFEM_ABORT("Unknown spacedim");
+
   WellFunctionCoefficient Q(param.injection, param.production,
                             param.inflow, param.outflow, param.spacedim);
 
@@ -46,7 +55,7 @@ void ParPressureSolver(const Array<int>& block_offsets,
   ParBilinearForm mVarf(&V_space);
   ParMixedBilinearForm bVarf(&V_space, &P_space);
 
-  mVarf.AddDomainIntegrator(new VectorFEMassIntegrator(K));
+  mVarf.AddDomainIntegrator(new VectorFEMassIntegrator(*K));
   mVarf.Assemble();
 
   bVarf.AddDomainIntegrator(new VectorFEDivergenceIntegrator);
@@ -124,6 +133,7 @@ void ParPressureSolver(const Array<int>& block_offsets,
   delete BT;
   delete B;
   delete M;
+  delete K;
 }
 #endif // MFEM_USE_MPI
 

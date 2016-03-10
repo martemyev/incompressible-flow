@@ -43,7 +43,9 @@ struct Param
   int spacedim; ///< Spatial dimension of the problem (2 for 2D, 3 for 3D)
   int nx, ny, nz; ///< Number of cells of a Cartesian grid along each direction
   double sx, sy, sz; ///< Size of computational domain in each direction
-  double *K_array; ///< Permeability array (cell-wise constant - one value per cell)
+  double *K_array_x; ///< Permeability array (cell-wise constant - one value per cell) (x-component of a diagonal tensor)
+  double *K_array_y; ///< Permeability array (cell-wise constant - one value per cell) (y-component of a diagonal tensor)
+  double *K_array_z; ///< Permeability array (cell-wise constant - one value per cell) (z-component of a diagonal tensor)
   double *phi_array; ///< Array of porosity values (cell-wise constant)
 
   int order_v, order_p, order_s; ///< Orders of finite elements for approximation
@@ -55,10 +57,14 @@ struct Param
   int vis_steps_local; ///< Visualization step for saturation solver (local)
   int saturation_steps; ///< Output step for saturation as a binary file
 
-  double K; ///< Constant permeability
+  double K_x; ///< Constant permeability (x-component of a tensor)
+  double K_y; ///< Constant permeability (y-component of a tensor)
+  double K_z; ///< Constant permeability (z-component of a tensor)
   double phi; ///< Constant porosity
 
-  const char *K_file; ///< Binary file for heterogeneous permeability
+  const char *K_file_x; ///< Binary file for heterogeneous permeability (x-component of a diagonal tensor)
+  const char *K_file_y; ///< Binary file for heterogeneous permeability (y-component of a diagonal tensor)
+  const char *K_file_z; ///< Binary file for heterogeneous permeability (z-component of a diagonal tensor)
   const char *phi_file; ///< Binary file for heterogeneous porosity
 
   const char *outdir; ///< Name of an output directory
@@ -172,6 +178,82 @@ protected:
   int n_cells;
   bool two_phase_flow;
   bool own_array;
+};
+
+
+
+/**
+ * Coefficient based on a product of a cell-wise vector coefficient (done via
+ * arrays - in (x and y) or (x, y and z0 directions depending on dimension of
+ * a problem), and a grid function.
+ */
+class CWVectorCoefficient : public mfem::VectorCoefficient
+{
+public:
+  CWVectorCoefficient(mfem::GridFunctionCoefficient& f, double muw, double muo,
+                      double *arrayX, double *arrayY, int ncells,
+                      bool two_phase, bool own)
+    : VectorCoefficient(2)
+    , func(f)
+    , mu_w(muw)
+    , mu_o(muo)
+    , val_array_X(arrayX)
+    , val_array_Y(arrayY)
+    , val_array_Z(nullptr)
+    , n_cells(ncells)
+    , two_phase_flow(two_phase)
+    , own_arrays(own)
+  {}
+
+  CWVectorCoefficient(mfem::GridFunctionCoefficient& f, double muw, double muo,
+                      double *arrayX, double *arrayY, double *arrayZ, int ncells,
+                      bool two_phase, bool own)
+    : VectorCoefficient(3)
+    , func(f)
+    , mu_w(muw)
+    , mu_o(muo)
+    , val_array_X(arrayX)
+    , val_array_Y(arrayY)
+    , val_array_Z(arrayZ)
+    , n_cells(ncells)
+    , two_phase_flow(two_phase)
+    , own_arrays(own)
+  {}
+
+  virtual ~CWVectorCoefficient()
+  {
+    if (own_arrays)
+    {
+      delete[] val_array_X;
+      delete[] val_array_Y;
+      delete[] val_array_Z;
+    }
+  }
+
+  virtual void Eval(mfem::Vector &V, mfem::ElementTransformation &T,
+                    const mfem::IntegrationPoint &ip)
+  {
+    const int index = T.Attribute - 1; // use attribute as a cell number
+    MFEM_ASSERT(index >= 0 && index < n_cells, "Element number (attribute) is "
+                "out of range: " + d2s(index));
+    const double S = func.Eval(T, ip);
+    const double val = Krw(S, two_phase_flow) / mu_w +
+                       Kro(S, two_phase_flow) / mu_o;
+
+    V.SetSize(vdim);
+    V(0) = 1./(val*val_array_X[index]);
+    V(1) = 1./(val*val_array_Y[index]);
+    if (vdim == 3)
+      V(2) = 1./(val*val_array_Z[index]);
+  }
+
+protected:
+  mfem::GridFunctionCoefficient& func;
+  double mu_w, mu_o;
+  double *val_array_X, *val_array_Y, *val_array_Z;
+  int n_cells;
+  bool two_phase_flow;
+  bool own_arrays;
 };
 
 
