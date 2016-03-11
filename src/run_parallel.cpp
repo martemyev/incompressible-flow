@@ -212,20 +212,20 @@ void run_parallel(int argc, char **argv)
              << endl;
       }
     }
-    else
-    {
-      double Smax = S.Max();
-      MPI_Allreduce(MPI_IN_PLACE, &Smax, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
-      if (Smax > 1.1)
-      {
-        valid_loop = 0;
-        if (myid == 0)
-        {
-          cout << "\n\n\tSaturation went up to more than 1.1. The process stops.\n"
-               << endl;
-        }
-      }
-    }
+//    else
+//    {
+//      double Smax = S.Max();
+//      MPI_Allreduce(MPI_IN_PLACE, &Smax, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+//      if (Smax > 1.1)
+//      {
+//        valid_loop = 0;
+//        if (myid == 0)
+//        {
+//          cout << "\n\n\tSaturation went up to more than 1.1. The process stops.\n"
+//               << endl;
+//        }
+//      }
+//    }
   }
 
   if (myid == 0)
