@@ -21,12 +21,12 @@ void PressureSolver(const Array<int> &block_offsets,
   CWVectorCoefficient *K;
   if (param.spacedim == 2)
     K = new CWVectorCoefficient(saturation, MU_W, MU_O, param.K_array_x,
-                                param.K_array_y, n_cells, param.two_phase_flow,
+                                param.K_array_y, n_cells, param,
                                 own_array);
   else if (param.spacedim == 3)
     K = new CWVectorCoefficient(saturation, MU_W, MU_O, param.K_array_x,
                                 param.K_array_y, param.K_array_z, n_cells,
-                                param.two_phase_flow,  own_array);
+                                param,  own_array);
   else MFEM_ABORT("Unknown spacedim");
 
   WellFunctionCoefficient Q(param.injection, param.production,

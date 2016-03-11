@@ -4,23 +4,6 @@ using namespace std;
 using namespace mfem;
 
 
-double Krw(double S, bool two_phase_flow)
-{
-  if (two_phase_flow)
-    return S*S;
-  else
-    return S;
-}
-
-double Kro(double S, bool two_phase_flow)
-{
-  if (two_phase_flow)
-    return (1.0-S)*(1.0-S);
-  else
-    return (1.0-S);
-}
-
-
 
 DarcySolverParam::DarcySolverParam()
   : maxiter(1000)
@@ -79,6 +62,8 @@ Param::Param()
   , inflow(1.)
   , outflow(-1.)
   , saturation_source(1.)
+  , Sor(0.)
+  , Swc(0.)
   , info(false)
 { }
 
@@ -122,6 +107,9 @@ void Param::init_arrays()
     for (int i = 0; i < n_cells; ++i) phi_array[i] = phi;
   else
     read_binary(phi_file, n_cells, phi_array);
+  for (int i = 0; i < n_cells; ++i)
+    if (phi_array[i] < 1e-3)
+      phi_array[i] = 1e-3;
 }
 
 void Param::add_options(OptionsParser &args)
@@ -172,6 +160,8 @@ void Param::add_options(OptionsParser &args)
   args.AddOption(&inflow, "-inflow", "--inflow", "Inflow value (in injection well)");
   args.AddOption(&outflow, "-outflow", "--outflow", "Outflow value (in production well)");
   args.AddOption(&saturation_source, "-sat-source", "--saturation-source", "Value of saturation source");
+  args.AddOption(&Sor, "-Sor", "--Sor", "Irreducible oil saturation");
+  args.AddOption(&Swc, "-Swc", "--Swc", "Connate water saturation");
 
   darcy.add_options(args);
 
@@ -198,4 +188,28 @@ string Param::get_info() const
       "\nGit commit hash            : " + GIT_COMMIT_HASH +
       "\n";
   return str;
+}
+
+
+
+double Param::Krw(double S) const
+{
+  if (two_phase_flow)
+  {
+    double S_ = (S - Swc) / (1. - Sor - Swc);
+    return S_*S_;
+  }
+  else
+    return S;
+}
+
+double Param::Kro(double S) const
+{
+  if (two_phase_flow)
+  {
+    double S_ = (S - Swc) / (1. - Sor - Swc);
+    return (1.-S_)*(1.-S_);
+  }
+  else
+    return (1.-S);
 }

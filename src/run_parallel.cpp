@@ -52,6 +52,22 @@ void run_parallel(int argc, char **argv)
     args.PrintOptions(cout);
 
   p.init_arrays();
+  if (myid == 0)
+  {
+    const int n_cells = p.get_n_cells();
+    double minv, maxv;
+    get_minmax(p.K_array_x, n_cells, minv, maxv);
+    std::cout << "Kx: min " << minv << " max " << maxv << "\n";
+    get_minmax(p.K_array_y, n_cells, minv, maxv);
+    std::cout << "Ky: min " << minv << " max " << maxv << "\n";
+    if (p.spacedim == 3)
+    {
+      get_minmax(p.K_array_z, n_cells, minv, maxv);
+      std::cout << "Kz: min " << minv << " max " << maxv << "\n";
+    }
+    get_minmax(p.phi_array, n_cells, minv, maxv);
+    std::cout << "phi: min " << minv << " max " << maxv << "\n";
+  }
 
   if (myid == 0)
   {

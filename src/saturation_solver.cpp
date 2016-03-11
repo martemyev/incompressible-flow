@@ -5,14 +5,13 @@
 using namespace std;
 using namespace mfem;
 
-void FS(const GridFunction& S, Vector& fs)
+void FS(const Param& param, const GridFunction& S, Vector& fs)
 {
   MFEM_VERIFY(S.Size() == fs.Size(), "Dimensions mismatch");
-  const bool two_phase_flow = true; // this is only valid for two phase flow
   for (int i = 0; i < S.Size(); ++i)
   {
-    const double mw = Krw(S(i), two_phase_flow) / MU_W;
-    const double mo = Kro(S(i), two_phase_flow) / MU_O;
+    const double mw = param.Krw(S(i)) / MU_W;
+    const double mo = param.Kro(S(i)) / MU_O;
     fs(i) = mw / (mw + mo);
   }
 }
@@ -78,7 +77,7 @@ void SaturationSolver(const Param &param, GridFunction &S,
   {
      if (param.two_phase_flow)
      {
-       FS(S, fs);
+       FS(param, S, fs);
        (*Kt).Mult(fs, z); // S = S + dt M^-1( K F(S) + b)
      }
      else

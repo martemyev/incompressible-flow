@@ -7,8 +7,6 @@
 
 #include <iostream>
 
-double Krw(double S, bool two_phase_flow);
-double Kro(double S, bool two_phase_flow);
 
 
 struct DarcySolverParam
@@ -36,6 +34,7 @@ struct Well
 
   Well();
 };
+
 
 
 struct Param
@@ -76,6 +75,8 @@ struct Param
 
   Well injection, production;
   double inflow, outflow, saturation_source;
+  double Sor; ///< Irreducible oil saturation
+  double Swc; ///< Connate water saturation
 
   DarcySolverParam darcy; ///< Parameters of a Darcy solver
 
@@ -106,6 +107,18 @@ struct Param
     if (spacedim == 3) V_domain *= sz;
     return V_domain / get_n_cells();
   }
+
+  /**
+   * @brief Relative permeability for water as a function of water saturation
+   * @param S - water saturation
+   */
+  double Krw(double S) const;
+
+  /**
+   * @brief Relative permeability for oil as a function of water saturation
+   * @param S - water saturation
+   */
+  double Kro(double S) const;
 };
 
 
@@ -147,13 +160,13 @@ class CWCoefficient : public mfem::Coefficient
 {
 public:
   CWCoefficient(mfem::GridFunctionCoefficient& f, double muw, double muo,
-                double *array, int ncells, bool two_phase, bool own)
+                double *array, int ncells, const Param& p, bool own)
     : func(f)
     , mu_w(muw)
     , mu_o(muo)
     , val_array(array)
     , n_cells(ncells)
-    , two_phase_flow(two_phase)
+    , param(p)
     , own_array(own)
   { }
 
@@ -166,8 +179,8 @@ public:
     MFEM_ASSERT(index >= 0 && index < n_cells, "Element number (attribute) is "
                 "out of range: " + d2s(index));
     const double S = func.Eval(T, ip);
-    const double val = Krw(S, two_phase_flow) / mu_w +
-                       Kro(S, two_phase_flow) / mu_o;
+    const double val = param.Krw(S) / mu_w +
+                       param.Kro(S) / mu_o;
     return 1./(val*val_array[index]);
   }
 
@@ -176,7 +189,7 @@ protected:
   double mu_w, mu_o;
   double *val_array;
   int n_cells;
-  bool two_phase_flow;
+  const Param &param;
   bool own_array;
 };
 
@@ -192,7 +205,7 @@ class CWVectorCoefficient : public mfem::VectorCoefficient
 public:
   CWVectorCoefficient(mfem::GridFunctionCoefficient& f, double muw, double muo,
                       double *arrayX, double *arrayY, int ncells,
-                      bool two_phase, bool own)
+                      const Param& p, bool own)
     : VectorCoefficient(2)
     , func(f)
     , mu_w(muw)
@@ -201,13 +214,13 @@ public:
     , val_array_Y(arrayY)
     , val_array_Z(nullptr)
     , n_cells(ncells)
-    , two_phase_flow(two_phase)
+    , param(p)
     , own_arrays(own)
   {}
 
   CWVectorCoefficient(mfem::GridFunctionCoefficient& f, double muw, double muo,
                       double *arrayX, double *arrayY, double *arrayZ, int ncells,
-                      bool two_phase, bool own)
+                      const Param& p, bool own)
     : VectorCoefficient(3)
     , func(f)
     , mu_w(muw)
@@ -216,7 +229,7 @@ public:
     , val_array_Y(arrayY)
     , val_array_Z(arrayZ)
     , n_cells(ncells)
-    , two_phase_flow(two_phase)
+    , param(p)
     , own_arrays(own)
   {}
 
@@ -237,8 +250,8 @@ public:
     MFEM_ASSERT(index >= 0 && index < n_cells, "Element number (attribute) is "
                 "out of range: " + d2s(index));
     const double S = func.Eval(T, ip);
-    const double val = Krw(S, two_phase_flow) / mu_w +
-                       Kro(S, two_phase_flow) / mu_o;
+    const double val = param.Krw(S) / mu_w +
+                       param.Kro(S) / mu_o;
 
     V.SetSize(vdim);
     V(0) = 1./(val*val_array_X[index]);
@@ -252,7 +265,7 @@ protected:
   double mu_w, mu_o;
   double *val_array_X, *val_array_Y, *val_array_Z;
   int n_cells;
-  bool two_phase_flow;
+  const Param& param;
   bool own_arrays;
 };
 

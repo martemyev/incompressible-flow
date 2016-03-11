@@ -7,14 +7,13 @@ using namespace mfem;
 
 #if defined(MFEM_USE_MPI) // parallel mode
 
-void FS(const Vector& S, Vector& fs)
+void FS(const Param& param, const Vector& S, Vector& fs)
 {
   MFEM_VERIFY(S.Size() == fs.Size(), "Dimensions mismatch");
-  const bool two_phase_flow = true; // this is only valid for two phase flow
   for (int i = 0; i < S.Size(); ++i)
   {
-    const double mw = Krw(S(i), two_phase_flow) / MU_W;
-    const double mo = Kro(S(i), two_phase_flow) / MU_O;
+    const double mw = param.Krw(S(i)) / MU_W;
+    const double mo = param.Kro(S(i)) / MU_O;
     fs(i) = mw / (mw + mo);
   }
 }
@@ -28,10 +27,10 @@ class FE_Evolution : public TimeDependentOperator
 {
 public:
   FE_Evolution(HypreParMatrix &_M, HypreParMatrix &_K, const Vector &_b,
-               bool two_phase)
+               const Param &p)
     : TimeDependentOperator(_M.Height()),
       M(_M), K(_K), b(_b), M_solver(M.GetComm()), z(_M.Height()),
-      two_phase_flow(two_phase)
+      param(p)
   {
     M_prec.SetType(HypreSmoother::Jacobi);
     M_solver.SetPreconditioner(M_prec);
@@ -46,10 +45,10 @@ public:
 
   void Mult(const Vector &x, Vector &y) const
   {
-    if (two_phase_flow)
+    if (param.two_phase_flow)
     {
       Vector fs(x.Size());
-      FS(x, fs);
+      FS(param, x, fs);
       K.Mult(fs, z); // S = S + dt M^-1( K F(S) + b)
     }
     else
@@ -69,7 +68,7 @@ private:
    const Vector &b;
    HypreSmoother M_prec;
    CGSolver M_solver;
-   bool two_phase_flow;
+   const Param &param;
 
    mutable Vector z;
 };
@@ -126,7 +125,7 @@ void ParSaturationSolver(const Param &param, ParGridFunction &S,
 
   HypreParVector *SV = S.GetTrueDofs();
 
-  FE_Evolution adv(*M, *K, *B, param.two_phase_flow);
+  FE_Evolution adv(*M, *K, *B, param);
   ode_solver->Init(adv);
 
   double t = 0.0;
